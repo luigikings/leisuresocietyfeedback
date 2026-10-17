@@ -1,0 +1,991 @@
+/* Leisure City — mobile-first (reference 375 px, supported 320-430 px).
+   Survey style = the night city (RF-92 to RF-97, plan §14.3): night-blue surfaces, one warm accent (the lit
+   windows) and one neon accent; system sans-serif in normal case; no gold tiles, metallic gradients or
+   outlined text. Only the intro stage drawing keeps a game-show look.
+   Contrast: text >= 4.5:1 on --night and --street, control borders >= 3:1 (RNF-4). */
+
+:root {
+  --night: #0b1026;   /* background: the city ground */
+  --street: #141b3d;  /* surfaces: options, tiles, fields */
+  --block: #1c2550;   /* surface on hover */
+  --line: #8a94c7;    /* control borders */
+  --text: #f4f6ff;
+  --muted: #b9c1e8;   /* secondary text */
+  --window: #ffd36b;  /* warm light accent: chosen, focus, primary button */
+  --neon: #ff5fd2;    /* the only second accent: progress dot (and neon lights in the city drawing) */
+  --red: #ff6b6b;     /* city drawing only */
+  --radius: 14px;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: radial-gradient(120% 60% at 50% 0%, #1a2464 0%, var(--night) 60%) fixed, var(--night);
+  color: var(--text);
+  font: 400 1rem/1.45 var(--sans);
+  overflow-x: hidden;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.app {
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom)); /* the offline notice is in the flow: no reserved room */
+}
+
+:focus-visible {
+  outline: 3px solid var(--window);
+  outline-offset: 2px;
+}
+
+[data-title]:focus {
+  outline: none;
+}
+
+/* Visually hidden but read by screen readers and focusable (the intro title, RNF-4). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Screens -------------------------------------------------------------------------------- */
+
+.screen {
+  animation: screen-in 200ms ease both;
+}
+
+@keyframes screen-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.screen__title {
+  margin: 24px 0 12px;
+  font: 700 1.6rem/1.2 var(--sans);
+  letter-spacing: normal;
+  color: var(--text);
+}
+
+/* --- Buttons --------------------------------------------------------------------------------- */
+
+/* RF-97: flat pills in the city's light, distinct from the stage drawing (no bevel, no gradient). */
+.btn {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 24px;
+  border: 0;
+  border-radius: 999px;
+  font: 700 1.1rem/1.2 var(--sans);
+  letter-spacing: normal;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.btn--primary {
+  background: var(--window);
+  color: var(--night); /* > 10:1 */
+  border-radius: 999px;
+  box-shadow: 0 0 20px rgb(255 211 107 / .3);
+}
+
+.btn--primary:hover { box-shadow: 0 0 28px rgb(255 211 107 / .45); }
+.btn--primary:active { transform: translateY(1px); }
+
+.actions {
+  padding: 16px 0 8px;
+}
+
+/* --- Intro: stage of the first event, two texts and "Give feedback" (RF-5 to RF-9, RF-80 to RF-88) -----
+   The stage is an inline SVG (index.html, Annex B) and the only game-show piece: RF-93 does not apply to it.
+   Fit (RF-88, plan §14.4): the section is a column exactly as tall as the screen (minus the 16 px bottom
+   padding of .app). Texts and button keep their size; only the stage shrinks, keeping its 3:4 shape, so
+   nothing scrolls from 568 px of height up. Its basis is its full-width height (content width x 4/3,
+   at most 398 x 4/3), so on tall screens it does not grow past the column width and the rest is centred.
+   Below 568 px the stage gets a fixed 300 px and the page scrolls vertically. */
+
+.screen--intro {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  height: calc(100vh - 16px - env(safe-area-inset-bottom));
+  height: calc(100dvh - 16px - env(safe-area-inset-bottom));
+  padding-top: 16px;
+}
+
+.plato {
+  flex: 0 1 min(calc((100vw - 32px) * 4 / 3), 531px);
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.plato svg {
+  display: block;
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  border-radius: 10px;
+}
+
+.plato text {
+  font-family: var(--sans);
+  font-weight: 700;
+}
+
+/* Continuous loop (RF-8, plan §14.4): infinite, no end frame, every cycle ≥ 1 s with smooth ease-in-out
+   opacity, so there are never more than 3 flashes per second (RF-86). Reduced motion: the global
+   @media (prefers-reduced-motion) rule sets animation: none, so the stage stays static and complete (RF-87).
+   The base styles are the full stage; the keyframes only add movement. The 8 polygons of the stage are its
+   beams (1-4 top, 5-8 crossed from the floor) and its circles 1-4 are the spots and 5-8 the sign bulbs. */
+
+.plato__beam {
+  transform-box: fill-box;
+  transform-origin: 50% 0; /* top beams swing from their spot */
+  animation: plato-beam 6s ease-in-out infinite alternate;
+}
+
+.plato__beam:nth-of-type(2) { animation-delay: -1.5s; }
+.plato__beam:nth-of-type(3) { animation-delay: -4.5s; }
+.plato__beam:nth-of-type(4) { animation-delay: -3s; }
+
+/* crossed floor beams swing from their apex on the stage floor */
+.plato__beam:nth-of-type(5),
+.plato__beam:nth-of-type(7) {
+  transform-origin: 0 100%;
+}
+
+.plato__beam:nth-of-type(6),
+.plato__beam:nth-of-type(8) {
+  transform-origin: 100% 100%;
+  animation-delay: -6s; /* starts the other way, so each pair crosses and opens */
+}
+
+@keyframes plato-beam {
+  from { transform: rotate(-5deg); }
+  to { transform: rotate(5deg); }
+}
+
+.plato__spot {
+  animation: plato-glow-spot 3s ease-in-out infinite;
+}
+
+.plato__spot:nth-of-type(2n) { animation-delay: -1.5s; }
+
+@keyframes plato-glow-spot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .75; }
+}
+
+/* sign bulbs chase around the sign: top-left, top-right, bottom-right, bottom-left */
+.plato__bulb {
+  animation: plato-glow-bulb 2.4s ease-in-out infinite;
+}
+
+.plato__bulb:nth-of-type(6) { animation-delay: -.6s; }
+.plato__bulb:nth-of-type(8) { animation-delay: -1.2s; }
+.plato__bulb:nth-of-type(7) { animation-delay: -1.8s; }
+
+@keyframes plato-glow-bulb {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .55; }
+}
+
+.plato__onair {
+  animation: plato-glow-onair 2s ease-in-out infinite;
+}
+
+@keyframes plato-glow-onair {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .6; }
+}
+
+/* buzzers: soft red halo, out of step by group */
+.plato__buzzer {
+  animation: plato-buzzer 2.8s ease-in-out infinite;
+}
+
+.plato__group-2 .plato__buzzer { animation-delay: -.9s; }
+.plato__group-3 .plato__buzzer { animation-delay: -1.9s; }
+
+@keyframes plato-buzzer {
+  0%, 100% { filter: drop-shadow(0 0 0 rgb(255 90 74 / 0)); }
+  50% { filter: drop-shadow(0 0 2.5px rgb(255 90 74 / .9)); }
+}
+
+/* contestants: 1 px vertical sway, out of step with each other */
+.plato__contestant {
+  animation: plato-sway 4s ease-in-out infinite;
+}
+
+.plato__contestant:nth-child(2) { animation-delay: -1.3s; }
+.plato__contestant:nth-child(3) { animation-delay: -2.6s; }
+.plato__group-2 .plato__contestant { animation-delay: -.7s; }
+.plato__group-2 .plato__contestant:nth-child(2) { animation-delay: -2s; }
+.plato__group-2 .plato__contestant:nth-child(3) { animation-delay: -3.3s; }
+.plato__group-3 .plato__contestant { animation-delay: -1.6s; }
+.plato__group-3 .plato__contestant:nth-child(2) { animation-delay: -2.9s; }
+.plato__group-3 .plato__contestant:nth-child(3) { animation-delay: -.3s; }
+
+@keyframes plato-sway {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1px); }
+}
+
+.intro__thanks,
+.intro__ask {
+  flex: none;
+  margin: 0;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.intro__thanks {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.intro__ask {
+  font-size: 1rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.screen--intro .btn {
+  flex: none;
+}
+
+@media (max-height: 567px) {
+  .screen--intro {
+    height: auto;
+  }
+
+  .plato {
+    flex: none;
+    height: 300px;
+  }
+}
+
+/* --- Country selection: grid of square flags (RF-10, RF-11, RF-89 to RF-91, plan §14.5) ----------
+   3 fixed columns: at 320 px each tile is (288 - 24) / 3 = 88 px (>= 64, RF-91); 4 columns would give 63 px.
+   The flag fills the tile, centred and cropped at the sides; no visible text (the name is the img alt). */
+
+.countries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.country {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--street);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.country:hover,
+.country:focus-visible {
+  border-color: var(--window);
+  box-shadow: 0 0 0 1px var(--window), 0 0 18px rgb(255 211 107 / .35);
+}
+
+.country:active {
+  transform: translateY(1px);
+}
+
+.country__flag {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* "Other": the globe centred at 55 % on the tile surface (RF-11). */
+.country__flag.country__flag--other {
+  width: 55%;
+  height: 55%;
+  margin: 22.5%;
+  object-fit: contain;
+}
+
+/* flow-root keeps the title's top margin inside #app: otherwise it collapses into body (min-height: 100dvh)
+   and adds 24 px of vertical scroll (plan §14.4, RF-88, RF-91). */
+.app[data-screen="intro"],
+.app[data-screen="country"] {
+  display: flow-root;
+}
+
+/* --- Night city in plan view (RF-69 to RF-72, RF-76, RF-78, plan §14.6) -------------------------
+   A flat map: ground, streets, blocks, 20 filler buildings and the 10 site icons. Sites light up with an
+   opacity fade (RF-29); fillers, roof windows and street lamps stay off until #city[data-all-lit], which
+   paintCity only sets with the 10 sites lit (RF-72). The periphery outside the viewBox (streets and blocks,
+   no buildings) is clipped by the wrapper on questions and fills the rest of the screen on the final. */
+
+.city-wrap {
+  margin: 12px 0 0;
+  overflow: hidden;
+}
+
+.city {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* Questions: the whole city, never zoomed, at most 40 % of the screen height (RF-76, RF-78). */
+.app[data-screen="question"] .city-wrap {
+  height: min(40dvh, calc((min(100vw, 430px) - 32px) * .75));
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+}
+
+.app[data-screen="question"] .city {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+}
+
+.city__ground { fill: var(--night); }
+.block { fill: #141b3d; }
+
+.street {
+  fill: #232d5e;
+  transition: fill 700ms ease;
+}
+
+.street__line {
+  fill: none;
+  stroke: #36427c;
+  stroke-width: .8;
+  stroke-dasharray: 4 5;
+}
+
+.lamp {
+  fill: var(--window);
+  opacity: 0;
+  transition: opacity 700ms ease;
+}
+
+.filler__roof {
+  fill: #232d5e;
+  transition: fill 700ms ease;
+}
+
+.win {
+  fill: url(#windows);
+  opacity: 0;
+  transition: opacity 700ms ease;
+}
+
+.win__dot { fill: var(--window); }
+
+/* All 10 sites lit: the whole city lit. This is also the last state of the final, so "done", a reload and
+   reduced motion show it directly (RF-54, RF-56, RF-77); the light wave only plays it in (RF-73). */
+#city[data-all-lit] .street { fill: #2c3770; }
+#city[data-all-lit] .filler__roof { fill: #2c3770; }
+
+#city[data-all-lit] .lamp,
+#city[data-all-lit] .win {
+  opacity: 1;
+}
+
+/* Sites: dark shapes with dim lights; lit, the lights and the halo fade in (RF-29). */
+.site .body { fill: #232d5e; }
+.site .body--green { fill: #1b3a3a; transition: fill 700ms ease; }
+.site .body--tree { fill: #24504a; }
+.site .body-stroke { stroke: #2e3a72; }
+.site .hole { fill: var(--night); }
+
+.site .cobble {
+  fill: none;
+  stroke: #1a2250;
+  stroke-width: .8;
+}
+
+.site .lt {
+  fill: var(--window);
+  opacity: .13;
+  transition: opacity 700ms ease;
+}
+
+.site .lt--pink { fill: var(--neon); }
+.site .lt--red { fill: var(--red); }
+.site .lt--cyan { fill: #7fe3ff; }
+.site .lt--soft { fill-opacity: .55; }
+
+.site .lt-stroke {
+  fill: none;
+  stroke: var(--window);
+  opacity: .13;
+  transition: opacity 700ms ease;
+}
+
+.site .lt-stroke--pink { stroke: var(--neon); }
+
+.site .glow {
+  opacity: 0;
+  transition: opacity 900ms ease;
+}
+
+.site.is-lit .lt,
+.site.is-lit .lt-stroke,
+.site.is-lit .glow {
+  opacity: 1;
+}
+
+.site.is-lit .body--green { fill: #2a6a50; }
+.site.is-lit .body--tree { fill: #3c8a63; }
+
+/* --- Question (RF-17 to RF-36) ------------------------------------------------------------------- */
+
+.question__count {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 4px;
+  color: var(--muted);
+  font-size: .9rem;
+  font-weight: 600;
+  letter-spacing: normal;
+}
+
+/* Progress dot: the only use of the neon accent in the survey style (RF-94). */
+.question__count::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--neon);
+  box-shadow: 0 0 8px rgb(255 95 210 / .6);
+}
+
+.question__text {
+  margin: 0 0 16px;
+  font-size: 1.25rem;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+/* Options A/B/C (RF-17, RF-19, RF-96): a street-blue card with the letter in a round "bulb". The chosen one is
+   "lit": warm border and glow, filled bulb and a check icon (a mark besides colour). */
+.options {
+  display: grid;
+  gap: 10px;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 56px;
+  padding: 9px 14px 9px 10px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--street);
+  color: var(--text);
+  font: 600 1rem/1.3 var(--sans);
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.option:hover {
+  background: var(--block);
+}
+
+.option__letter {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  font: 700 1rem/1 var(--sans);
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.option__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.option__check {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--window);
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.option__check svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.option[aria-checked="true"] {
+  border-color: var(--window);
+  background: var(--block);
+  box-shadow: 0 0 0 1px var(--window), 0 0 18px rgb(255 211 107 / .35);
+}
+
+.option[aria-checked="true"] .option__letter {
+  border-color: var(--window);
+  background: var(--window);
+  color: var(--night);
+}
+
+.option[aria-checked="true"] .option__check {
+  opacity: 1;
+}
+
+/* Single text field (RF-20 to RF-25) */
+.answer-text {
+  margin-top: 16px;
+}
+
+.answer-text__label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.answer-text__input {
+  display: block;
+  width: 100%;
+  min-height: 92px;
+  padding: 10px 14px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--street);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem; /* >= 16 px: no zoom on focus in mobile browsers */
+  resize: vertical;
+}
+
+.answer-text__input:focus-visible {
+  outline-offset: 1px;
+  border-color: var(--window);
+}
+
+.answer-text__left {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: .85rem;
+  text-align: right;
+}
+
+/* Back / Next (RF-17, RF-18, RF-23) */
+.actions--nav {
+  display: flex;
+  gap: 12px;
+}
+
+.actions--nav .btn--primary {
+  flex: 1 1 auto;
+}
+
+.btn--ghost {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 96px;
+  background: transparent;
+  color: var(--text);
+  border: 2px solid var(--line);
+}
+
+.btn--ghost:hover {
+  border-color: var(--window);
+  background: var(--block);
+}
+
+.btn:disabled,
+.btn:disabled:hover {
+  background: #3a4066;
+  color: #c9cce0;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* --- Final (RF-53 to RF-56) ----------------------------------------------------------------------
+   Timeline from js/lib/final-view.js as --final-<phase>-start / -dur (set on #app by screens/final.js):
+   wave 0-1.4 s, cars 0.9-3.5 s, confetti 1.8-4.8 s, flags spin 3.4-5.2 s, join 4.6-5.8 s, flash 5.6-6.3 s,
+   texts 5.9-7.2 s (8 s at most). The base styles ARE the last state (city lit, cars parked, flags together,
+   texts visible); the keyframes only run under [data-final="play"], so "done", a reload and reduced motion
+   show the last state with no animation. */
+
+.city__cars,
+.city__wave {
+  display: none;
+}
+
+.app[data-final] .city__cars {
+  display: inline;
+}
+
+/* Full-screen city (RF-79): the whole 400x300 map centred and never zoomed (meet); the periphery outside the
+   viewBox fills the rest of the screen with streets and blocks. */
+.app[data-screen="final"] .city-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  margin: 0;
+  overflow: hidden;
+  background: var(--night);
+}
+
+.app[data-screen="final"] .city {
+  width: 100%;
+  height: 100%;
+}
+
+/* Flags and texts on a translucent night panel at the bottom, over the lit city: keeps text >= 4.5:1
+   (RNF-4). It is sized for the last state (the fan of flags and the texts) so it stays below the centred
+   map from 320x568; while spinning, the flags fly over the city. No transform here: it would pin the fixed
+   confetti to the panel. */
+.screen--final {
+  position: fixed;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  width: calc(100% - 32px);
+  max-width: 398px;
+  margin: 0 auto;
+  padding: 8px 16px 16px;
+  text-align: center;
+}
+
+.screen--final::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 20px;
+  background: rgb(11 16 38 / .82);
+  box-shadow: 0 0 0 1px rgb(138 148 199 / .25);
+}
+
+.final__stage {
+  position: relative;
+  height: 54px;
+}
+
+/* The offline notice goes inside the panel, under "Thank you" (RF-49, plan §14.11). The panel gives that line
+   back from its own bottom space (12 px of offset + 7 px of padding = the 19 px line), so its top does not move
+   and it never covers the city. */
+.screen--final:has(.offline-notice.is-visible) {
+  bottom: calc(4px + env(safe-area-inset-bottom));
+  padding-bottom: 9px;
+}
+
+.final__flags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+.final-flag {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 33px;
+  margin: -16.5px 0 0 -22px;
+  transform: translate(calc(var(--ex) * 1px), calc(var(--ey) * 1px)) rotate(calc(var(--rot) * 1deg));
+}
+
+.final-flag__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 3px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / .45), 0 4px 12px rgb(0 0 0 / .45);
+  backface-visibility: visible;
+}
+
+.final__flash {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 140px;
+  height: 140px;
+  margin: -70px 0 0 -70px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fffbe8 0%, rgb(255 211 107 / .85) 30%, rgb(255 211 107 / 0) 70%);
+  pointer-events: none;
+}
+
+.final__title {
+  margin: 4px 0;
+  font-size: clamp(1.5rem, 7.4vw, 2rem); /* one line from 320 px */
+  color: var(--window); /* no text-shadow (RF-93) */
+}
+
+.final__thanks {
+  margin: 0;
+  color: var(--text);
+  font: 700 1.4rem/1.2 var(--sans);
+}
+
+.confetti {
+  display: none;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.confetti__piece {
+  position: absolute;
+  top: -16px;
+  left: var(--x);
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--c);
+  opacity: 0;
+}
+
+/* Playing (only right after Q10, never with reduced motion) */
+
+.app[data-final="play"] .city__wave {
+  display: inline;
+  animation: final-wave var(--final-wave-dur) linear var(--final-wave-start) both;
+}
+
+/* The wave lights the city as it passes (RF-73). It moves at a constant speed from x = -120 to 400, so its
+   centre reaches x = 400 * --fx at (60 + 400 * fx) / 520 = .115 + .77 * fx of the wave phase. No
+   transitions meanwhile: they would light everything at once before the wave. */
+.app[data-final="play"] #city .street,
+.app[data-final="play"] #city .filler__roof,
+.app[data-final="play"] #city .lamp,
+.app[data-final="play"] #city .win {
+  transition: none;
+}
+
+.app[data-final="play"] #city[data-all-lit] .win,
+.app[data-final="play"] #city[data-all-lit] .lamp {
+  animation: city-on 300ms ease calc(var(--final-wave-start) + var(--final-wave-dur) * (.115 + .77 * var(--fx))) both;
+}
+
+.app[data-final="play"] #city[data-all-lit] .filler__roof,
+.app[data-final="play"] #city[data-all-lit] .street--v {
+  animation: city-fill-on 300ms ease calc(var(--final-wave-start) + var(--final-wave-dur) * (.115 + .77 * var(--fx))) both;
+}
+
+/* Horizontal avenues run the whole width: they brighten while the wave crosses them. */
+.app[data-final="play"] #city[data-all-lit] .street:not(.street--v) {
+  animation: city-fill-on var(--final-wave-dur) linear var(--final-wave-start) both;
+}
+
+@keyframes city-on {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes city-fill-on {
+  from { fill: #232d5e; }
+  to { fill: #2c3770; }
+}
+
+/* The panel fades in with the flags, so the wave crosses the whole city first. */
+.app[data-final="play"] .screen--final::before {
+  animation: city-on 400ms ease var(--final-spin-start) both;
+}
+
+@keyframes final-wave {
+  from { transform: translateX(0); opacity: 1; }
+  85% { opacity: 1; }
+  to { transform: translateX(520px); opacity: 0; }
+}
+
+.app[data-final="play"] .car {
+  animation: final-car var(--final-cars-dur) cubic-bezier(.25, .6, .3, 1) var(--final-cars-start) both;
+}
+
+/* Staggered starts, same end: every car is parked by the end of the cars phase. */
+.app[data-final="play"] .car--1 { --car-from: -110px; }
+.app[data-final="play"] .car--2 {
+  --car-from: -240px;
+  animation-delay: calc(var(--final-cars-start) + 250ms);
+  animation-duration: calc(var(--final-cars-dur) - 250ms);
+}
+.app[data-final="play"] .car--3 {
+  --car-from: 110px;
+  animation-delay: calc(var(--final-cars-start) + 500ms);
+  animation-duration: calc(var(--final-cars-dur) - 500ms);
+}
+
+@keyframes final-car {
+  from { transform: translateX(var(--car-from)); }
+  to { transform: none; }
+}
+
+.app[data-final="play"] .confetti {
+  display: block;
+}
+
+.app[data-final="play"] .confetti__piece {
+  animation: final-confetti var(--t) linear calc(var(--final-confetti-start) + var(--d)) both;
+}
+
+@keyframes final-confetti {
+  from { transform: translate(0, 0) rotate(0); opacity: 1; }
+  80% { opacity: 1; }
+  to { transform: translate(var(--drift), 105vh) rotate(var(--spin)); opacity: 0; }
+}
+
+.app[data-final="play"] .final-flag {
+  animation: final-flag-join var(--final-converge-dur) cubic-bezier(.55, 0, .25, 1) var(--final-converge-start) both;
+}
+
+@keyframes final-flag-join {
+  from { transform: translate(calc(var(--sx) * 1px), calc(var(--sy) * 1px)); }
+  to { transform: translate(calc(var(--ex) * 1px), calc(var(--ey) * 1px)) rotate(calc(var(--rot) * 1deg)); }
+}
+
+.app[data-final="play"] .final-flag__img {
+  animation: final-flag-spin var(--final-spin-dur) ease-out var(--final-spin-start) both;
+}
+
+@keyframes final-flag-spin {
+  from { transform: rotateY(0) scale(.4); opacity: 0; }
+  15% { opacity: 1; }
+  to { transform: rotateY(1080deg) scale(1); opacity: 1; }
+}
+
+.app[data-final="play"] .final__flash {
+  display: block;
+  animation: final-flash var(--final-flash-dur) ease-out var(--final-flash-start) both;
+}
+
+@keyframes final-flash {
+  from { transform: scale(.2); opacity: 0; }
+  30% { transform: scale(1); opacity: 1; }
+  to { transform: scale(1.8); opacity: 0; }
+}
+
+.app[data-final="play"] .final__title {
+  animation: final-text-in calc(var(--final-texts-dur) * .7) cubic-bezier(.2, .9, .3, 1.3) var(--final-texts-start) both;
+}
+
+.app[data-final="play"] .final__thanks,
+.app[data-final="play"] .screen--final .offline-notice {
+  animation: final-text-in calc(var(--final-texts-dur) * .7) cubic-bezier(.2, .9, .3, 1.3)
+    calc(var(--final-texts-start) + var(--final-texts-dur) * .3) both;
+}
+
+@keyframes final-text-in {
+  from { transform: scale(.5); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* --- Offline notice (RF-49, RF-50, plan §14.11) ------------------------------------------------
+   A quiet status line in the page flow: under Back/Next in the questions and under "Thank you" in the final
+   panel. Empty (and 0 px tall) until the queue holds a state after a transient failure. */
+
+.offline-notice {
+  margin: 0;
+  color: var(--muted);
+  font-size: .85rem;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.offline-notice.is-visible::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--window);
+  vertical-align: 1px;
+}
+
+.screen--question .offline-notice.is-visible {
+  margin-top: 10px;
+}
+
+.screen--final .offline-notice.is-visible {
+  margin-top: 2px;
+}
+
+/* --- Reduced motion (RNF-2): no movement, only opacity fades of 200 ms at most ---------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition-property: opacity !important;
+    transition-duration: 200ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .screen {
+    animation: screen-in 200ms ease both !important;
+  }
+
+  .btn--primary:active {
+    transform: none;
+  }
+}

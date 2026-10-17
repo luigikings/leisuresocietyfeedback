@@ -1,0 +1,11 @@
+{
+  "name": "leisuresocietyfeedback",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Leisure City: mobile survey for the Events and Leisure university project.",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node --test"
+  }
+}

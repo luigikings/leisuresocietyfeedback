@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1026">
+  <meta name="description" content="Leisure City: answer 10 quick questions and light up the night city.">
+  <title>Leisure City</title>
+  <link rel="icon" href="data:,"><!-- no favicon request: avoids a 404 in the console (RNF-9) -->
+  <link rel="stylesheet" href="css/survey.css">
+  <script type="module" src="js/app/main.js"></script>
+</head>
+<body>
+  <main id="app" class="app">
+
+    <!-- INTRO: stage of the first event, two texts and "Give feedback" (RF-5 to RF-9, RF-80 to RF-88). Original drawing: no real TV logos, no audio. -->
+    <section id="screen-intro" class="screen screen--intro" aria-labelledby="intro-title">
+      <h1 id="intro-title" class="visually-hidden" tabindex="-1" data-title>Leisure in Jeopardy</h1>
+      <!-- Stage of the first event (Annex B, RF-83 to RF-85): decorative, so screen readers skip it (RNF-4) -->
+      <div class="plato">
+        <svg viewBox="0 0 300 400" aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid meet">
+        <!-- wall and rail with 4 spots -->
+        <rect width="300" height="400" fill="#2B3990"/>
+        <polygon class="plato__beam" points="52,16 62,16 73,210 41,210" fill="#fff" fill-opacity=".07"/>
+        <polygon class="plato__beam" points="112,16 122,16 133,210 101,210" fill="#fff" fill-opacity=".07"/>
+        <polygon class="plato__beam" points="169,16 179,16 190,210 158,210" fill="#fff" fill-opacity=".07"/>
+        <polygon class="plato__beam" points="229,16 239,16 250,210 218,210" fill="#fff" fill-opacity=".07"/>
+        <polygon class="plato__beam" points="48,274 102,216 128,216" fill="#fff" fill-opacity=".08"/>
+        <polygon class="plato__beam" points="118,274 58,216 84,216" fill="#fff" fill-opacity=".08"/>
+        <polygon class="plato__beam" points="182,274 216,216 242,216" fill="#fff" fill-opacity=".08"/>
+        <polygon class="plato__beam" points="252,274 172,216 198,216" fill="#fff" fill-opacity=".08"/>
+        <rect x="30" y="0" width="240" height="12" fill="#0D1440"/>
+        <circle class="plato__spot" cx="57" cy="16" r="6.5" fill="#FFE9A8"/>
+        <circle class="plato__spot" cx="117" cy="16" r="6.5" fill="#FFE9A8"/>
+        <circle class="plato__spot" cx="174" cy="16" r="6.5" fill="#FFE9A8"/>
+        <circle class="plato__spot" cx="234" cy="16" r="6.5" fill="#FFE9A8"/>
+        <!-- title sign -->
+        <rect x="54" y="28" width="192" height="48" rx="6" fill="#111A4A" stroke="#FFB400" stroke-width="3"/>
+        <circle class="plato__bulb" cx="64.5" cy="38" r="3.2" fill="#FFB400"/>
+        <circle class="plato__bulb" cx="235.5" cy="38" r="3.2" fill="#FFB400"/>
+        <circle class="plato__bulb" cx="64.5" cy="66" r="3.2" fill="#FFB400"/>
+        <circle class="plato__bulb" cx="235.5" cy="66" r="3.2" fill="#FFB400"/>
+        <text class="plato__sign-small" x="150" y="47" font-size="12" fill="#fff" text-anchor="middle">Leisure in</text>
+        <text class="plato__sign-big" x="150" y="69" font-size="23" fill="#FFB400" text-anchor="middle">Jeopardy</text>
+        <!-- board: 5 columns x (header + 100/200/300); Community-200 and Culture & identity-300 already played -->
+        <rect x="37" y="88" width="226" height="127" rx="5" fill="#111A4A"/>
+        <rect x="43" y="93" width="40" height="19.5" rx="2" fill="#FFB400"/>
+        <text class="plato__head" x="63" y="104.8" font-size="5.6" fill="#0D1440" text-anchor="middle">Well-being</text>
+        <rect x="86.4" y="93" width="40" height="19.5" rx="2" fill="#FFB400"/>
+        <text class="plato__head" x="106.4" y="104.8" font-size="5.6" fill="#0D1440" text-anchor="middle">Community</text>
+        <rect x="129.8" y="93" width="40" height="19.5" rx="2" fill="#FFB400"/>
+        <text class="plato__head" x="149.8" y="104.8" font-size="5.6" fill="#0D1440" text-anchor="middle">Economy</text>
+        <rect x="173.2" y="93" width="40" height="19.5" rx="2" fill="#FFB400"/>
+        <text class="plato__head" x="193.2" font-size="5.6" fill="#0D1440" text-anchor="middle"><tspan x="193.2" y="101.4">Culture &amp;</tspan><tspan x="193.2" y="108.2">identity</tspan></text>
+        <rect x="216.6" y="93" width="40" height="19.5" rx="2" fill="#FFB400"/>
+        <text class="plato__head" x="236.6" font-size="5.6" fill="#0D1440" text-anchor="middle"><tspan x="236.6" y="101.4">Access &amp;</tspan><tspan x="236.6" y="108.2">inclusion</tspan></text>
+        <rect x="43" y="117.5" width="40" height="25" rx="2" fill="#3549C8"/>
+        <text class="plato__value" x="63" y="133.8" font-size="11" fill="#FFB400" text-anchor="middle">100</text>
+        <rect x="86.4" y="117.5" width="40" height="25" rx="2" fill="#3549C8"/>
+        <text class="plato__value" x="106.4" y="133.8" font-size="11" fill="#FFB400" text-anchor="middle">100</text>
+        <rect x="129.8" y="117.5" width="40" height="25" rx="2" fill="#3549C8"/>
+        <text class="plato__value" x="149.8" y="133.8" font-size="11" fill="#FFB400" text-anchor="middle">100</text>
+        <rect x="173.2" y="117.5" width="40" height="25" rx="2" fill="#3549C8"/>
+        <text class="plato__value" x="193.2" y="133.8" font-size="11" fill="#FFB400" text-anchor="middle">100</text>
+        <rect x="216.6" y="117.5" width="40" height="25" rx="2" fill="#3549C8"/>
+        <text class="plato__value" x="236.6" y="133.8" font-size="11" fill="#FFB400" text-anchor="middle">100</text>
+        <rect x="43" y="147.5" width="40" height="25" rx="2" fill="#3549C8"/>
+        <text class="plato__value" x="63" y="163.8" font-size="11" fill="#FFB400" text-anchor="middle">200</text>
+        <rect class="plato__empty" data-cell="community-200" x="86.4" y="147.5" width="40" height="25" rx="2" fill="#0B1035"/>
+        <rect x="129.8" y="147.5" width="40" height="25" rx="2" fill="#3549C8"/>
+        <text class="plato__value" x="149.8" y="163.8" font-size="11" fill="#FFB400" text-anchor="middle">200</text>
+        <rect x="173.2" y="147.5" width="40" height="25" rx="2" fill="#3549C8"/>
+        <text class="plato__value" x="193.2" y="163.8" font-size="11" fill="#FFB400" text-anchor="middle">200</text>
+        <rect x="216.6" y="147.5" width="40" height="25" rx="2" fill="#3549C8"/>
+        <text class="plato__value" x="236.6" y="163.8" font-size="11" fill="#FFB400" text-anchor="middle">200</text>
+        <rect x="43" y="177.5" width="40" height="25" rx="2" fill="#3549C8"/>
+        <text class="plato__value" x="63" y="193.8" font-size="11" fill="#FFB400" text-anchor="middle">300</text>
+        <rect x="86.4" y="177.5" width="40" height="25" rx="2" fill="#3549C8"/>
+        <text class="plato__value" x="106.4" y="193.8" font-size="11" fill="#FFB400" text-anchor="middle">300</text>
+        <rect x="129.8" y="177.5" width="40" height="25" rx="2" fill="#3549C8"/>
+        <text class="plato__value" x="149.8" y="193.8" font-size="11" fill="#FFB400" text-anchor="middle">300</text>
+        <rect class="plato__empty" data-cell="culture-300" x="173.2" y="177.5" width="40" height="25" rx="2" fill="#0B1035"/>
+        <rect x="216.6" y="177.5" width="40" height="25" rx="2" fill="#3549C8"/>
+        <text class="plato__value" x="236.6" y="193.8" font-size="11" fill="#FFB400" text-anchor="middle">300</text>
+        <!-- posts and "On air" sign -->
+        <rect class="plato__post" x="32.5" y="241" width="2.6" height="33" fill="#0B1035"/>
+        <rect class="plato__post" x="263" y="241" width="2.6" height="33" fill="#0B1035"/>
+        <g class="plato__onair">
+          <rect x="241" y="229.5" width="27" height="10.5" rx="2" fill="#D93025"/>
+          <text class="plato__onair-text" x="254.5" y="237" font-size="6" fill="#fff" text-anchor="middle">On air</text>
+        </g>
+        <!-- stage edge and floor with the spotlight ellipse -->
+        <rect y="276.5" width="300" height="123.5" fill="#161C45"/>
+        <ellipse cx="150" cy="333" rx="134" ry="45" fill="#1E2552"/>
+        <rect y="273" width="300" height="3.5" fill="#FFB400"/>
+        <!-- 3 groups of contestants behind their podiums -->
+        <g class="plato__group-1">
+          <g class="plato__contestant">
+            <path d="M51.6 318 L52.6 289 Q52.6 283 58.6 283 H70.6 Q76.6 283 76.6 289 L77.6 318 Z" fill="#E8604C"/>
+            <circle cx="64.6" cy="273" r="6.6" fill="#8B5A3C"/>
+          </g>
+          <g class="plato__contestant">
+            <path d="M32.4 318 L33.4 298 Q33.4 292 39.4 292 H51.4 Q57.4 292 57.4 298 L58.4 318 Z" fill="#F2A33A"/>
+            <circle cx="45.4" cy="281" r="6.6" fill="#E3B285"/>
+          </g>
+          <g class="plato__contestant">
+            <path d="M70.8 318 L71.8 298 Q71.8 292 77.8 292 H89.8 Q95.8 292 95.8 298 L96.8 318 Z" fill="#D4507A"/>
+            <circle cx="83.8" cy="281" r="6.6" fill="#F2C9A0"/>
+          </g>
+          <rect x="33.4" y="316.5" width="62.4" height="58" fill="#3B4FD6"/>
+          <rect x="33.4" y="316.5" width="62.4" height="3.8" fill="#FFB400"/>
+          <text class="plato__group" x="64.6" y="328.2" font-size="5.8" fill="#fff" text-anchor="middle">Group 1</text>
+          <rect x="43.6" y="332.2" width="42" height="18.2" rx="1.5" fill="#0D1440" stroke="#FFB400" stroke-width="1"/>
+          <text class="plato__score" x="64.6" y="345.3" font-size="11" fill="#FFB400" text-anchor="middle">300</text>
+          <circle class="plato__buzzer" cx="64.6" cy="362.5" r="3.8" fill="#D93025"/>
+        </g>
+        <g class="plato__group-2">
+          <g class="plato__contestant">
+            <path d="M137 318 L138 289 Q138 283 144 283 H156 Q162 283 162 289 L163 318 Z" fill="#1E9E70"/>
+            <circle cx="150" cy="273" r="6.6" fill="#F2C9A0"/>
+          </g>
+          <g class="plato__contestant">
+            <path d="M117.8 318 L118.8 298 Q118.8 292 124.8 292 H136.8 Q142.8 292 142.8 298 L143.8 318 Z" fill="#3DB8C8"/>
+            <circle cx="130.8" cy="281" r="6.6" fill="#8B5A3C"/>
+          </g>
+          <g class="plato__contestant">
+            <path d="M156.2 318 L157.2 298 Q157.2 292 163.2 292 H175.2 Q181.2 292 181.2 298 L182.2 318 Z" fill="#7CC86E"/>
+            <circle cx="169.2" cy="281" r="6.6" fill="#E3B285"/>
+          </g>
+          <rect x="118.8" y="316.5" width="62.4" height="58" fill="#3B4FD6"/>
+          <rect x="118.8" y="316.5" width="62.4" height="3.8" fill="#FFB400"/>
+          <text class="plato__group" x="150" y="328.2" font-size="5.8" fill="#fff" text-anchor="middle">Group 2</text>
+          <rect x="129" y="332.2" width="42" height="18.2" rx="1.5" fill="#0D1440" stroke="#FFB400" stroke-width="1"/>
+          <text class="plato__score" x="150" y="345.3" font-size="11" fill="#FFB400" text-anchor="middle">500</text>
+          <circle class="plato__buzzer" cx="150" cy="362.5" r="3.8" fill="#D93025"/>
+        </g>
+        <g class="plato__group-3">
+          <g class="plato__contestant">
+            <path d="M222.4 318 L223.4 289 Q223.4 283 229.4 283 H241.4 Q247.4 283 247.4 289 L248.4 318 Z" fill="#7B5BD0"/>
+            <circle cx="235.4" cy="273" r="6.6" fill="#E3B285"/>
+          </g>
+          <g class="plato__contestant">
+            <path d="M203.2 318 L204.2 298 Q204.2 292 210.2 292 H222.2 Q228.2 292 228.2 298 L229.2 318 Z" fill="#B07FE0"/>
+            <circle cx="216.2" cy="281" r="6.6" fill="#F2C9A0"/>
+          </g>
+          <g class="plato__contestant">
+            <path d="M241.6 318 L242.6 298 Q242.6 292 248.6 292 H260.6 Q266.6 292 266.6 298 L267.6 318 Z" fill="#5B70D8"/>
+            <circle cx="254.6" cy="281" r="6.6" fill="#8B5A3C"/>
+          </g>
+          <rect x="204.2" y="316.5" width="62.4" height="58" fill="#3B4FD6"/>
+          <rect x="204.2" y="316.5" width="62.4" height="3.8" fill="#FFB400"/>
+          <text class="plato__group" x="235.4" y="328.2" font-size="5.8" fill="#fff" text-anchor="middle">Group 3</text>
+          <rect x="214.4" y="332.2" width="42" height="18.2" rx="1.5" fill="#0D1440" stroke="#FFB400" stroke-width="1"/>
+          <text class="plato__score" x="235.4" y="345.3" font-size="11" fill="#FFB400" text-anchor="middle">200</text>
+          <circle class="plato__buzzer" cx="235.4" cy="362.5" r="3.8" fill="#D93025"/>
+        </g>
+        </svg>
+      </div>
+      <p class="intro__thanks">Thank you for being part of our first event! We hope you enjoyed it as much as we did</p>
+      <p class="intro__ask">Do you want to help us with our new assignment?</p>
+      <button type="button" class="btn btn--primary" data-action="start">Give feedback</button>
+    </section>
+
+    <!-- COUNTRY: grid of square flags, no search and no visible names (RF-10, RF-11, RF-15, RF-16, RF-89 to RF-91) -->
+    <section id="screen-country" class="screen screen--country" aria-labelledby="country-title" hidden>
+      <h1 id="country-title" class="screen__title" tabindex="-1" data-title>Where are you from?</h1>
+      <ul class="countries" aria-label="Countries"></ul>
+    </section>
+
+    <!-- NIGHT CITY in plan view (RF-69 to RF-72): shared by the question and final screens (RF-29). One <g data-site> per leisure site. -->
+    <div class="city-wrap" id="city-wrap" hidden>
+      <svg id="city" class="city" viewBox="0 0 400 300" role="img" aria-label="Night city: 0 of 10 places lit">
+        <defs>
+          <radialGradient id="glow">
+            <stop offset="0" stop-color="#ffd36b" stop-opacity=".75"/>
+            <stop offset="1" stop-color="#ffd36b" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="glow-pink">
+            <stop offset="0" stop-color="#ff5fd2" stop-opacity=".7"/>
+            <stop offset="1" stop-color="#ff5fd2" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="wave" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#fff2c4" stop-opacity="0"/>
+            <stop offset=".5" stop-color="#fff2c4" stop-opacity=".6"/>
+            <stop offset="1" stop-color="#fff2c4" stop-opacity="0"/>
+          </linearGradient>
+          <!-- roof windows of the filler buildings: one 3x3 light per 8x8 tile -->
+          <pattern id="windows" width="8" height="8" patternUnits="userSpaceOnUse">
+            <rect class="win__dot" x="2.5" y="2.5" width="3" height="3"/>
+          </pattern>
+        </defs>
+        <!-- Map in plan view (RF-69): ground, streets and blocks. The periphery (y < 0 and y > 300) is only seen
+             on the full-screen final; it has no buildings and does not count as filler. -->
+        <rect class="city__ground" x="-200" y="-200" width="800" height="700"/>
+        <g class="city__streets" aria-hidden="true">
+          <rect class="street" x="-200" y="70" width="800" height="10"/>
+          <rect class="street" x="-200" y="145" width="800" height="10"/>
+          <rect class="street" x="-200" y="220" width="800" height="10"/>
+          <rect class="street" x="-200" y="-10" width="800" height="10"/>
+          <rect class="street" x="-200" y="-85" width="800" height="10"/>
+          <rect class="street" x="-200" y="-160" width="800" height="10"/>
+          <rect class="street" x="-200" y="300" width="800" height="10"/>
+          <rect class="street" x="-200" y="375" width="800" height="10"/>
+          <rect class="street" x="-200" y="450" width="800" height="10"/>
+          <rect class="street street--v" x="75" y="-200" width="10" height="700" style="--fx:0.20"/>
+          <rect class="street street--v" x="155" y="-200" width="10" height="700" style="--fx:0.40"/>
+          <rect class="street street--v" x="235" y="-200" width="10" height="700" style="--fx:0.60"/>
+          <rect class="street street--v" x="315" y="-200" width="10" height="700" style="--fx:0.80"/>
+          <path class="street__line" d="M-200 75H600M-200 150H600M-200 225H600M-200 -5H600M-200 -80H600M-200 -155H600M-200 305H600M-200 380H600M-200 455H600M80 -200V500M160 -200V500M240 -200V500M320 -200V500"/>
+          <g class="lamps">
+            <circle class="lamp" cx="37.5" cy="78.2" r="1.4" style="--fx:0.09"/><circle class="lamp" cx="120" cy="71.8" r="1.4" style="--fx:0.30"/><circle class="lamp" cx="200" cy="78.2" r="1.4" style="--fx:0.50"/><circle class="lamp" cx="280" cy="71.8" r="1.4" style="--fx:0.70"/><circle class="lamp" cx="362.5" cy="78.2" r="1.4" style="--fx:0.91"/><circle class="lamp" cx="37.5" cy="153.2" r="1.4" style="--fx:0.09"/>
+            <circle class="lamp" cx="120" cy="146.8" r="1.4" style="--fx:0.30"/><circle class="lamp" cx="200" cy="153.2" r="1.4" style="--fx:0.50"/><circle class="lamp" cx="280" cy="146.8" r="1.4" style="--fx:0.70"/><circle class="lamp" cx="362.5" cy="153.2" r="1.4" style="--fx:0.91"/><circle class="lamp" cx="37.5" cy="228.2" r="1.4" style="--fx:0.09"/><circle class="lamp" cx="120" cy="221.8" r="1.4" style="--fx:0.30"/>
+            <circle class="lamp" cx="200" cy="228.2" r="1.4" style="--fx:0.50"/><circle class="lamp" cx="280" cy="221.8" r="1.4" style="--fx:0.70"/><circle class="lamp" cx="362.5" cy="228.2" r="1.4" style="--fx:0.91"/><circle class="lamp" cx="83.2" cy="35" r="1.4" style="--fx:0.21"/><circle class="lamp" cx="76.8" cy="112.5" r="1.4" style="--fx:0.19"/><circle class="lamp" cx="83.2" cy="187.5" r="1.4" style="--fx:0.21"/>
+            <circle class="lamp" cx="76.8" cy="265" r="1.4" style="--fx:0.19"/><circle class="lamp" cx="163.2" cy="35" r="1.4" style="--fx:0.41"/><circle class="lamp" cx="156.8" cy="112.5" r="1.4" style="--fx:0.39"/><circle class="lamp" cx="163.2" cy="187.5" r="1.4" style="--fx:0.41"/><circle class="lamp" cx="156.8" cy="265" r="1.4" style="--fx:0.39"/><circle class="lamp" cx="243.2" cy="35" r="1.4" style="--fx:0.61"/>
+            <circle class="lamp" cx="236.8" cy="112.5" r="1.4" style="--fx:0.59"/><circle class="lamp" cx="243.2" cy="187.5" r="1.4" style="--fx:0.61"/><circle class="lamp" cx="236.8" cy="265" r="1.4" style="--fx:0.59"/><circle class="lamp" cx="323.2" cy="35" r="1.4" style="--fx:0.81"/><circle class="lamp" cx="316.8" cy="112.5" r="1.4" style="--fx:0.79"/><circle class="lamp" cx="323.2" cy="187.5" r="1.4" style="--fx:0.81"/>
+            <circle class="lamp" cx="316.8" cy="265" r="1.4" style="--fx:0.79"/><circle class="lamp" cx="73.5" cy="68.5" r="1.4" style="--fx:0.18"/><circle class="lamp" cx="86.5" cy="81.5" r="1.4" style="--fx:0.22"/><circle class="lamp" cx="73.5" cy="143.5" r="1.4" style="--fx:0.18"/><circle class="lamp" cx="86.5" cy="156.5" r="1.4" style="--fx:0.22"/><circle class="lamp" cx="73.5" cy="218.5" r="1.4" style="--fx:0.18"/>
+            <circle class="lamp" cx="86.5" cy="231.5" r="1.4" style="--fx:0.22"/><circle class="lamp" cx="153.5" cy="68.5" r="1.4" style="--fx:0.38"/><circle class="lamp" cx="166.5" cy="81.5" r="1.4" style="--fx:0.42"/><circle class="lamp" cx="153.5" cy="143.5" r="1.4" style="--fx:0.38"/><circle class="lamp" cx="166.5" cy="156.5" r="1.4" style="--fx:0.42"/><circle class="lamp" cx="153.5" cy="218.5" r="1.4" style="--fx:0.38"/>
+            <circle class="lamp" cx="166.5" cy="231.5" r="1.4" style="--fx:0.42"/><circle class="lamp" cx="233.5" cy="68.5" r="1.4" style="--fx:0.58"/><circle class="lamp" cx="246.5" cy="81.5" r="1.4" style="--fx:0.62"/><circle class="lamp" cx="233.5" cy="143.5" r="1.4" style="--fx:0.58"/><circle class="lamp" cx="246.5" cy="156.5" r="1.4" style="--fx:0.62"/><circle class="lamp" cx="233.5" cy="218.5" r="1.4" style="--fx:0.58"/>
+            <circle class="lamp" cx="246.5" cy="231.5" r="1.4" style="--fx:0.62"/><circle class="lamp" cx="313.5" cy="68.5" r="1.4" style="--fx:0.78"/><circle class="lamp" cx="326.5" cy="81.5" r="1.4" style="--fx:0.82"/><circle class="lamp" cx="313.5" cy="143.5" r="1.4" style="--fx:0.78"/><circle class="lamp" cx="326.5" cy="156.5" r="1.4" style="--fx:0.82"/><circle class="lamp" cx="313.5" cy="218.5" r="1.4" style="--fx:0.78"/>
+            <circle class="lamp" cx="326.5" cy="231.5" r="1.4" style="--fx:0.82"/>
+          </g>
+        </g>
+        <g class="city__blocks" aria-hidden="true">
+          <rect class="block" x="3" y="3" width="69" height="64" rx="4"/><rect class="block" x="88" y="3" width="64" height="64" rx="4"/><rect class="block" x="168" y="3" width="64" height="64" rx="4"/><rect class="block" x="248" y="3" width="64" height="64" rx="4"/><rect class="block" x="328" y="3" width="69" height="64" rx="4"/>
+          <rect class="block" x="3" y="83" width="69" height="59" rx="4"/><rect class="block" x="88" y="83" width="64" height="59" rx="4"/><rect class="block" x="168" y="83" width="64" height="59" rx="4"/><rect class="block" x="248" y="83" width="64" height="59" rx="4"/><rect class="block" x="328" y="83" width="69" height="59" rx="4"/>
+          <rect class="block" x="3" y="158" width="69" height="59" rx="4"/><rect class="block" x="88" y="158" width="64" height="59" rx="4"/><rect class="block" x="168" y="158" width="64" height="59" rx="4"/><rect class="block" x="248" y="158" width="64" height="59" rx="4"/><rect class="block" x="328" y="158" width="69" height="59" rx="4"/>
+          <rect class="block" x="3" y="233" width="69" height="64" rx="4"/><rect class="block" x="88" y="233" width="64" height="64" rx="4"/><rect class="block" x="168" y="233" width="64" height="64" rx="4"/><rect class="block" x="248" y="233" width="64" height="64" rx="4"/><rect class="block" x="328" y="233" width="69" height="64" rx="4"/>
+          <rect class="block" x="3" y="-72" width="69" height="59" rx="4"/><rect class="block" x="88" y="-72" width="64" height="59" rx="4"/><rect class="block" x="168" y="-72" width="64" height="59" rx="4"/><rect class="block" x="248" y="-72" width="64" height="59" rx="4"/><rect class="block" x="328" y="-72" width="69" height="59" rx="4"/>
+          <rect class="block" x="3" y="-157" width="69" height="69" rx="4"/><rect class="block" x="88" y="-157" width="64" height="69" rx="4"/><rect class="block" x="168" y="-157" width="64" height="69" rx="4"/><rect class="block" x="248" y="-157" width="64" height="69" rx="4"/><rect class="block" x="328" y="-157" width="69" height="69" rx="4"/>
+          <rect class="block" x="3" y="-200" width="69" height="37" rx="4"/><rect class="block" x="88" y="-200" width="64" height="37" rx="4"/><rect class="block" x="168" y="-200" width="64" height="37" rx="4"/><rect class="block" x="248" y="-200" width="64" height="37" rx="4"/><rect class="block" x="328" y="-200" width="69" height="37" rx="4"/>
+          <rect class="block" x="3" y="313" width="69" height="59" rx="4"/><rect class="block" x="88" y="313" width="64" height="59" rx="4"/><rect class="block" x="168" y="313" width="64" height="59" rx="4"/><rect class="block" x="248" y="313" width="64" height="59" rx="4"/><rect class="block" x="328" y="313" width="69" height="59" rx="4"/>
+          <rect class="block" x="3" y="388" width="69" height="59" rx="4"/><rect class="block" x="88" y="388" width="64" height="59" rx="4"/><rect class="block" x="168" y="388" width="64" height="59" rx="4"/><rect class="block" x="248" y="388" width="64" height="59" rx="4"/><rect class="block" x="328" y="388" width="69" height="59" rx="4"/>
+          <rect class="block" x="3" y="463" width="69" height="37" rx="4"/><rect class="block" x="88" y="463" width="64" height="37" rx="4"/><rect class="block" x="168" y="463" width="64" height="37" rx="4"/><rect class="block" x="248" y="463" width="64" height="37" rx="4"/><rect class="block" x="328" y="463" width="69" height="37" rx="4"/>
+        </g>
+        <!-- 20 filler buildings (RF-70): off until the 10 sites are lit (RF-72). --fx = horizontal position (0-1)
+             for the light wave of the final. -->
+        <g class="city__fillers" aria-hidden="true">
+          <g class="filler" data-filler style="--fx:0.27"><rect class="filler__roof" x="93" y="8" width="27" height="54" rx="2"/><rect class="win" x="96" y="16" width="16" height="40"/></g>
+          <g class="filler" data-filler style="--fx:0.34"><rect class="filler__roof" x="125" y="14" width="22" height="48" rx="2"/><rect class="win" x="128" y="16" width="16" height="40"/></g>
+          <g class="filler" data-filler style="--fx:0.70"><rect class="filler__roof" x="253" y="8" width="54" height="21" rx="2"/><rect class="win" x="256" y="16" width="48" height="8"/></g>
+          <g class="filler" data-filler style="--fx:0.70"><rect class="filler__roof" x="253" y="34" width="54" height="28" rx="2"/><rect class="win" x="256" y="40" width="48" height="16"/></g>
+          <g class="filler" data-filler style="--fx:0.05"><rect class="filler__roof" x="8" y="88" width="22" height="49" rx="2"/><rect class="win" x="16" y="96" width="8" height="32"/></g>
+          <g class="filler" data-filler style="--fx:0.13"><rect class="filler__roof" x="35" y="98" width="32" height="39" rx="2"/><rect class="win" x="40" y="104" width="24" height="24"/></g>
+          <g class="filler" data-filler style="--fx:0.50"><rect class="filler__roof" x="173" y="88" width="54" height="26" rx="2"/><rect class="win" x="176" y="96" width="48" height="16"/></g>
+          <g class="filler" data-filler style="--fx:0.49"><rect class="filler__roof" x="173" y="119" width="46" height="18" rx="2"/></g>
+          <g class="filler" data-filler style="--fx:0.87"><rect class="filler__roof" x="333" y="88" width="33" height="49" rx="2"/><rect class="win" x="336" y="96" width="24" height="32"/></g>
+          <g class="filler" data-filler style="--fx:0.95"><rect class="filler__roof" x="371" y="88" width="21" height="49" rx="2"/><rect class="win" x="376" y="96" width="8" height="32"/></g>
+          <g class="filler" data-filler style="--fx:0.30"><rect class="filler__roof" x="93" y="163" width="54" height="22" rx="2"/><rect class="win" x="96" y="168" width="48" height="8"/></g>
+          <g class="filler" data-filler style="--fx:0.28"><rect class="filler__roof" x="93" y="190" width="42" height="22" rx="2"/><rect class="win" x="96" y="192" width="32" height="16"/></g>
+          <g class="filler" data-filler style="--fx:0.66"><rect class="filler__roof" x="253" y="163" width="24" height="49" rx="2"/><rect class="win" x="256" y="168" width="16" height="40"/></g>
+          <g class="filler" data-filler style="--fx:0.74"><rect class="filler__roof" x="282" y="171" width="25" height="41" rx="2"/><rect class="win" x="288" y="176" width="16" height="32"/></g>
+          <g class="filler" data-filler style="--fx:0.09"><rect class="filler__roof" x="8" y="238" width="59" height="19" rx="2"/><rect class="win" x="16" y="240" width="48" height="8"/></g>
+          <g class="filler" data-filler style="--fx:0.09"><rect class="filler__roof" x="8" y="262" width="55" height="30" rx="2"/><rect class="win" x="16" y="264" width="40" height="24"/></g>
+          <g class="filler" data-filler style="--fx:0.47"><rect class="filler__roof" x="173" y="238" width="28" height="54" rx="2"/><rect class="win" x="176" y="240" width="16" height="48"/></g>
+          <g class="filler" data-filler style="--fx:0.54"><rect class="filler__roof" x="206" y="250" width="21" height="42" rx="2"/><rect class="win" x="208" y="256" width="16" height="32"/></g>
+          <g class="filler" data-filler style="--fx:0.91"><rect class="filler__roof" x="333" y="238" width="59" height="27" rx="2"/><rect class="win" x="336" y="240" width="48" height="16"/></g>
+          <g class="filler" data-filler style="--fx:0.91"><rect class="filler__roof" x="333" y="270" width="59" height="22" rx="2"/><rect class="win" x="336" y="272" width="48" height="16"/></g>
+        </g>
+        <!-- 10 leisure sites (RF-71): one icon seen from above per site, no text. Each fills one block; the
+             screen-reader text is the SVG's aria-label (RF-75). Lit: .lt lights and .glow halo fade in. -->
+
+        <!-- 1. Park: rounded lawn, tree crowns and a lit curved path -->
+        <g class="site" data-site="park">
+          <circle class="glow" cx="37.5" cy="35" r="38" fill="url(#glow)"/>
+          <g transform="translate(37.5 35)">
+            <rect class="body body--green" x="-30" y="-28" width="60" height="56" rx="16"/>
+            <path class="lt-stroke" stroke-width="3" d="M-30 18C-12 14-6-2 6-6S24-14 30-20"/>
+            <circle class="body body--tree" cx="-16" cy="-14" r="7"/><circle class="body body--tree" cx="15" cy="10" r="8"/>
+            <circle class="body body--tree" cx="-4" cy="14" r="5"/><circle class="body body--tree" cx="8" cy="-18" r="5"/>
+            <circle class="body body--tree" cx="-22" cy="6" r="4.5"/>
+            <circle class="lt" cx="-18" cy="17" r="1.8"/><circle class="lt" cx="-2" cy="4" r="1.8"/>
+            <circle class="lt" cx="14" cy="-9" r="1.8"/><circle class="lt" cx="26" cy="-17" r="1.8"/>
+          </g>
+        </g>
+
+        <!-- 2. Concert hall: fan-shaped roof with sound waves and a lit stage at the apex -->
+        <g class="site" data-site="concert-hall">
+          <circle class="glow" cx="200" cy="35" r="36" fill="url(#glow)"/>
+          <g transform="translate(200 33)">
+            <path class="body" d="M0 26L-25.7-4.6A40 40 0 0 1 25.7-4.6Z"/>
+            <path class="lt-stroke" stroke-width="2" d="M-11.6 12.2A18 18 0 0 1 11.6 12.2M-16.7 6.1A26 26 0 0 1 16.7 6.1M-21.9 0A34 34 0 0 1 21.9 0"/>
+            <circle class="lt" cx="0" cy="21" r="3"/>
+          </g>
+        </g>
+
+        <!-- 3. Museum: square plan with a central courtyard and columns on the perimeter -->
+        <g class="site" data-site="museum">
+          <circle class="glow" cx="362.5" cy="35" r="38" fill="url(#glow)"/>
+          <g transform="translate(362.5 35)">
+            <rect class="body" x="-27" y="-26" width="54" height="52" rx="1"/>
+            <rect class="hole" x="-10" y="-9" width="20" height="18"/>
+            <rect class="lt" x="-6" y="-5" width="12" height="10" opacity=".9"/>
+            <circle class="lt" cx="-22" cy="-21" r="1.7"/><circle class="lt" cx="-11" cy="-21" r="1.7"/><circle class="lt" cx="0" cy="-21" r="1.7"/>
+            <circle class="lt" cx="11" cy="-21" r="1.7"/><circle class="lt" cx="22" cy="-21" r="1.7"/>
+            <circle class="lt" cx="-22" cy="21" r="1.7"/><circle class="lt" cx="-11" cy="21" r="1.7"/><circle class="lt" cx="0" cy="21" r="1.7"/>
+            <circle class="lt" cx="11" cy="21" r="1.7"/><circle class="lt" cx="22" cy="21" r="1.7"/>
+            <circle class="lt" cx="-22" cy="-10" r="1.7"/><circle class="lt" cx="-22" cy="0" r="1.7"/><circle class="lt" cx="-22" cy="10" r="1.7"/>
+            <circle class="lt" cx="22" cy="-10" r="1.7"/><circle class="lt" cx="22" cy="0" r="1.7"/><circle class="lt" cx="22" cy="10" r="1.7"/>
+          </g>
+        </g>
+
+        <!-- 4. Theatre: semicircular seating facing a rectangular stage with a red curtain -->
+        <g class="site" data-site="theatre">
+          <circle class="glow" cx="120" cy="112.5" r="34" fill="url(#glow)"/>
+          <g transform="translate(120 106)">
+            <path class="body" d="M-27 8A27 27 0 0 1 27 8Z"/>
+            <path class="lt-stroke" stroke-width="1.6" d="M-9 8A9 9 0 0 1 9 8M-15 8A15 15 0 0 1 15 8M-21 8A21 21 0 0 1 21 8"/>
+            <rect class="body" x="-20" y="11" width="40" height="15" rx="1"/>
+            <rect class="lt lt--red" x="-16" y="14" width="32" height="9"/>
+          </g>
+        </g>
+
+        <!-- 5. Cinema: rectangle crossed by a perforated film strip -->
+        <g class="site" data-site="cinema">
+          <circle class="glow" cx="280" cy="112.5" r="34" fill="url(#glow)"/>
+          <g transform="translate(280 112.5)">
+            <rect class="body" x="-27" y="-20" width="54" height="40" rx="2"/>
+            <rect class="hole" x="-27" y="-8" width="54" height="16"/>
+            <rect class="lt" x="-24" y="-6.5" width="2.5" height="2.5"/><rect class="lt" x="-17" y="-6.5" width="2.5" height="2.5"/>
+            <rect class="lt" x="-10" y="-6.5" width="2.5" height="2.5"/><rect class="lt" x="-3" y="-6.5" width="2.5" height="2.5"/>
+            <rect class="lt" x="4" y="-6.5" width="2.5" height="2.5"/><rect class="lt" x="11" y="-6.5" width="2.5" height="2.5"/>
+            <rect class="lt" x="18" y="-6.5" width="2.5" height="2.5"/>
+            <rect class="lt" x="-24" y="4" width="2.5" height="2.5"/><rect class="lt" x="-17" y="4" width="2.5" height="2.5"/>
+            <rect class="lt" x="-10" y="4" width="2.5" height="2.5"/><rect class="lt" x="-3" y="4" width="2.5" height="2.5"/>
+            <rect class="lt" x="4" y="4" width="2.5" height="2.5"/><rect class="lt" x="11" y="4" width="2.5" height="2.5"/>
+            <rect class="lt" x="18" y="4" width="2.5" height="2.5"/>
+            <rect class="lt lt--soft" x="-23" y="-2.5" width="9" height="5"/><rect class="lt lt--soft" x="-11" y="-2.5" width="9" height="5"/>
+            <rect class="lt lt--soft" x="1" y="-2.5" width="9" height="5"/><rect class="lt lt--soft" x="13" y="-2.5" width="9" height="5"/>
+          </g>
+        </g>
+
+        <!-- 6. Fairground: Ferris wheel from above (circle with spokes) and a striped tent -->
+        <g class="site" data-site="fairground">
+          <circle class="glow" cx="37.5" cy="187.5" r="38" fill="url(#glow-pink)"/>
+          <g transform="translate(37.5 187.5)">
+            <g class="body-stroke" fill="none" stroke-width="2">
+              <circle cx="-10" cy="-6" r="17"/>
+              <path d="M-10-23V11M-27-6H7M-22-18L2 6M2-18L-22 6"/>
+            </g>
+            <circle class="lt lt--pink" cx="-10" cy="-23" r="2.2"/><circle class="lt" cx="2" cy="-18" r="2.2"/>
+            <circle class="lt lt--pink" cx="7" cy="-6" r="2.2"/><circle class="lt" cx="2" cy="6" r="2.2"/>
+            <circle class="lt lt--pink" cx="-10" cy="11" r="2.2"/><circle class="lt" cx="-22" cy="6" r="2.2"/>
+            <circle class="lt lt--pink" cx="-27" cy="-6" r="2.2"/><circle class="lt" cx="-22" cy="-18" r="2.2"/>
+            <circle class="lt" cx="-10" cy="-6" r="2.6"/>
+            <circle class="body" cx="17" cy="13" r="12"/>
+            <path class="lt lt--red" d="M17 13V1A12 12 0 0 1 25.5 4.5ZM17 13H29A12 12 0 0 1 25.5 21.5ZM17 13V25A12 12 0 0 1 8.5 21.5ZM17 13H5A12 12 0 0 1 8.5 4.5Z"/>
+            <circle class="lt" cx="17" cy="13" r="2"/>
+          </g>
+        </g>
+
+        <!-- 7. Town square: cobbled square with a round fountain in the middle and corner lamps -->
+        <g class="site" data-site="town-square">
+          <circle class="glow" cx="200" cy="187.5" r="36" fill="url(#glow)"/>
+          <g transform="translate(200 187.5)">
+            <rect class="body" x="-26" y="-26" width="52" height="52" rx="3"/>
+            <path class="cobble" d="M-26-13H26M-26 0H26M-26 13H26M-13-26V26M0-26V26M13-26V26"/>
+            <circle class="hole" cx="0" cy="0" r="11"/>
+            <circle class="body-stroke" cx="0" cy="0" r="11" fill="none" stroke-width="2"/>
+            <circle class="lt lt--cyan" cx="0" cy="0" r="6"/>
+            <circle class="lt" cx="-21" cy="-21" r="2.4"/><circle class="lt" cx="21" cy="-21" r="2.4"/>
+            <circle class="lt" cx="-21" cy="21" r="2.4"/><circle class="lt" cx="21" cy="21" r="2.4"/>
+          </g>
+        </g>
+
+        <!-- 8. Food market: grid of 6 stalls with striped awnings -->
+        <g class="site" data-site="food-market">
+          <circle class="glow" cx="362.5" cy="187.5" r="36" fill="url(#glow)"/>
+          <g transform="translate(362.5 187.5)">
+            <rect class="body" x="-27" y="-21" width="16" height="18" rx="1"/><rect class="body" x="-8" y="-21" width="16" height="18" rx="1"/><rect class="body" x="11" y="-21" width="16" height="18" rx="1"/>
+            <rect class="body" x="-27" y="3" width="16" height="18" rx="1"/><rect class="body" x="-8" y="3" width="16" height="18" rx="1"/><rect class="body" x="11" y="3" width="16" height="18" rx="1"/>
+            <path class="lt" d="M-25-19h3v14h-3ZM-19-19h3v14h-3ZM-6-19h3v14h-3ZM0-19h3v14h-3ZM13-19h3v14h-3ZM19-19h3v14h-3ZM-25 5h3v14h-3ZM-19 5h3v14h-3ZM-6 5h3v14h-3ZM0 5h3v14h-3ZM13 5h3v14h-3ZM19 5h3v14h-3Z"/>
+            <path class="lt lt--red" d="M-22-19h3v14h-3ZM-16-19h3v14h-3ZM-3-19h3v14h-3ZM3-19h3v14h-3ZM16-19h3v14h-3ZM22-19h3v14h-3ZM-22 5h3v14h-3ZM-16 5h3v14h-3ZM-3 5h3v14h-3ZM3 5h3v14h-3ZM16 5h3v14h-3ZM22 5h3v14h-3Z"/>
+          </g>
+        </g>
+
+        <!-- 9. Nightclub: building with a neon outline, a neon star and a disco ball -->
+        <g class="site" data-site="nightclub">
+          <circle class="glow" cx="120" cy="265" r="36" fill="url(#glow-pink)"/>
+          <g transform="translate(120 265)">
+            <rect class="body" x="-25" y="-24" width="50" height="48" rx="3"/>
+            <rect class="lt-stroke lt-stroke--pink" x="-21" y="-20" width="42" height="40" rx="2" stroke-width="1.6"/>
+            <path class="lt lt--pink" d="M0-15L3.5-4.8H14.3L5.6 1.6 8.8 12 0 5.6-8.8 12-5.6 1.6-14.3-4.8H-3.5Z"/>
+            <circle class="lt" cx="0" cy="0" r="3"/>
+          </g>
+        </g>
+
+        <!-- 10. Stadium: oval stands, rectangular pitch and 4 floodlight towers -->
+        <g class="site" data-site="stadium">
+          <circle class="glow" cx="280" cy="265" r="38" fill="url(#glow)"/>
+          <g transform="translate(280 265)">
+            <ellipse class="body" cx="0" cy="0" rx="30" ry="23"/>
+            <rect class="body body--green" x="-17" y="-11" width="34" height="22" rx="1"/>
+            <path class="lt-stroke" stroke-width="1" d="M0-11V11M-17-11H17V11H-17Z"/>
+            <circle class="lt-stroke" cx="0" cy="0" r="4.5" stroke-width="1"/>
+            <circle class="lt" cx="-28" cy="-22" r="3"/><circle class="lt" cx="28" cy="-22" r="3"/>
+            <circle class="lt" cx="-28" cy="22" r="3"/><circle class="lt" cx="28" cy="22" r="3"/>
+          </g>
+        </g>
+
+        <!-- Final screen only (RF-53, RF-54): cars seen from above on the avenues, and the light wave. -->
+        <g class="city__cars" aria-hidden="true">
+          <g class="car car--1">
+            <rect class="car__body" x="52" y="75.6" width="13" height="5.4" rx="1.6" fill="#ff6b6b"/>
+            <rect x="57" y="76.4" width="4" height="3.8" rx=".8" fill="#0b1026" opacity=".45"/>
+            <circle cx="64.4" cy="76.8" r=".9" fill="#fff2c4"/><circle cx="64.4" cy="79.8" r=".9" fill="#fff2c4"/>
+          </g>
+          <g class="car car--2">
+            <rect class="car__body" x="196" y="150.6" width="13" height="5.4" rx="1.6" fill="#5fd3ff"/>
+            <rect x="201" y="151.4" width="4" height="3.8" rx=".8" fill="#0b1026" opacity=".45"/>
+            <circle cx="208.4" cy="151.8" r=".9" fill="#fff2c4"/><circle cx="208.4" cy="154.8" r=".9" fill="#fff2c4"/>
+          </g>
+          <g class="car car--3">
+            <rect class="car__body" x="316" y="221" width="13" height="5.4" rx="1.6" fill="#f5c242"/>
+            <rect x="320" y="221.8" width="4" height="3.8" rx=".8" fill="#0b1026" opacity=".45"/>
+            <circle cx="316.6" cy="222.2" r=".9" fill="#fff2c4"/><circle cx="316.6" cy="225.2" r=".9" fill="#fff2c4"/>
+          </g>
+        </g>
+        <rect class="city__wave" x="-120" y="0" width="120" height="300" fill="url(#wave)"/>
+      </svg>
+    </div>
+
+    <!-- QUESTION (RF-17 to RF-36): what to show comes from js/lib/question-view.js; texts go in with textContent. -->
+    <section id="screen-question" class="screen screen--question" aria-labelledby="question-title" hidden>
+      <div class="question">
+        <p class="question__count" id="question-count"></p>
+        <h1 id="question-title" class="question__text" tabindex="-1" data-title aria-describedby="question-count"></h1>
+        <div class="options" role="radiogroup" aria-labelledby="question-title"></div>
+        <div class="answer-text" hidden>
+          <label class="answer-text__label" for="answer-text"></label>
+          <textarea id="answer-text" class="answer-text__input" rows="3" aria-describedby="answer-text-left" enterkeyhint="done"></textarea>
+          <p class="answer-text__left" id="answer-text-left"></p>
+        </div>
+      </div>
+      <div class="actions actions--nav">
+        <button type="button" class="btn btn--ghost" data-action="back">Back</button>
+        <button type="button" class="btn btn--primary" data-action="next" disabled>Next</button>
+      </div>
+      <!-- Offline notice (RF-49, RF-50): in the flow under Back/Next, so it never covers options, fields or buttons. -->
+      <p class="offline-notice" data-offline-notice role="status" aria-live="polite"></p>
+    </section>
+
+    <!-- FINAL (RF-53 to RF-56): CSS timeline of 8 s at most (js/lib/final-view.js), then a fixed last state.
+         The base styles ARE the last state; the animations only run while #app has data-final="play". -->
+    <section id="screen-final" class="screen screen--final" aria-labelledby="final-title" hidden>
+      <div class="final__stage">
+        <ul class="final__flags" aria-label="Countries"></ul>
+        <div class="final__flash" aria-hidden="true"></div>
+      </div>
+      <h1 id="final-title" class="screen__title final__title" tabindex="-1" data-title>Leisure for Society</h1>
+      <p class="final__thanks">Thank you</p>
+      <p class="offline-notice" data-offline-notice role="status" aria-live="polite"></p>
+      <div class="confetti" aria-hidden="true"></div>
+    </section>
+
+  </main>
+</body>
+</html>
