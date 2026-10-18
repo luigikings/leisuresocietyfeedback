@@ -741,3 +741,329 @@ Fuera de `node --test`, validación con el MCP Chrome DevTools a 375×667 y 320�
   - error a evitar: dos animaciones CSS en el mismo elemento se pisan (la entrada y la ola animan el contenedor o el hijo, nunca el mismo elemento que el bucle).
 - AGENTS.md: sin cambios de stack. Se puede proponer una regla permanente: "animar solo `opacity`/`transform`; los bucles con ciclos ≥ 1 s".
 
+## 16. Cambio de requisitos 2026-10-18: estilo de la referencia y ciudad viva
+Cubre los RF y RNF modificados (RF-8, RF-17, RF-35, RF-53, RF-69, RF-70, RF-73, RF-77, RF-79, RF-85, RF-86, RF-93 a RF-97, RF-103, RF-104, RF-112, RF-114, RF-116, RNF-2, RNF-4, RNF-5, RNF-7 y RNF-12), los nuevos (RF-119 a RF-148 y RNF-13) y los derogados RF-109 y RF-110 (spec, cambio del 2026-10-18, propuestas 23 a 40 aprobadas). Esta sección **sustituye** a:
+- §14.3 y la parte de estilo de §15: paleta, tipografía, opciones y botones;
+- §15.3: solo las duraciones (150/250 pasan a 200/350) y la entrada, que añade "rise";
+- §15.4: toda la ciudad (mapa en planta con volumen, sombras, naturaleza, agua y 16 rellenos);
+- §15.5: la posición de los rótulos, que ahora van dentro de su celda;
+- §15.7: el agua y las calles por las que van los coches.
+
+**Lo que no cambia**: la tabla, RLS, la RPC, la sincronización, la persistencia, `survey-state.js`, `question-view.js`, los datos de contenido y `CONTENT.version` (recolocar sitios no invalida progreso; caso límite de la spec). Los únicos recursos nuevos son 5 archivos de fuente servidos desde el propio sitio (RNF-13). No hay dependencias de JS nuevas.
+
+### 16.1 Lógica pura nueva o ampliada (`js/lib/`) — RNF-7
+Igual que antes: sin DOM, red ni reloj, y el tiempo y el azar se pasan como parámetro.
+
+**`city-grid.js`** (nuevo) — RF-69, RF-70, RF-73, RF-111, RF-139 a RF-141
+Es la geometría de la rejilla de la demo, en unidades del viewBox (`0 0 400 292`):
+```
+COLS = 6; ROWS = 4; CELL_W = 56; CELL_H = 62; GAP = 8; MARGIN_X = 12; MARGIN_Y = 10
+VIEW_W = 400; VIEW_H = 292; CENTER = { x: 200, y: 146 }
+cellBox(col, row) → { x: 12 + col·64, y: 10 + row·70, w: 56, h: 62 }
+SITE_CELLS = {                       // propuesta 29 aprobada; [col, row]
+  park: [1,2], "concert-hall": [4,0], museum: [0,0], theatre: [3,3], cinema: [5,1],
+  fairground: [3,2], "town-square": [2,0], "food-market": [5,3], nightclub: [3,1], stadium: [0,1] }
+fillerCells() → las 14 celdas sin sitio, en orden de lectura
+areNeighbours(a, b) → |dc| ≤ 1 y |dr| ≤ 1 y a ≠ b            // vecinas, también en diagonal
+readingOrder(cells) / columnOrder(cells)                     // para comprobar RF-139
+STREETS = { h: [76, 146, 216], v: [72, 136, 200, 264, 328] }  // ejes de las calles interiores
+lampPoints() → farolas en el centro de cada lado de manzana sobre calle y en cada cruce interior (unas 50, ≥ 20, RF-140)
+waveDelayFraction(x, y) → distancia a CENTER / distancia máxima a una esquina, en [0, 1] (RF-73)
+fillerBuildings(seed) → por celda de relleno, entre 2 y 4 rectángulos dentro de la celda, con un generador
+  pseudoaleatorio con semilla (Park–Miller, como la demo), así que el resultado es fijo e igual para todos (RF-70)
+```
+- **Decisión**: geometría en un módulo puro y SVG de calles, relleno y farolas generado por `city.js` a partir de él. **Descartado**: escribir a mano en `index.html` las 14 manzanas, unos 45 edificios y unas 50 farolas. Habría dos copias de la geometría, y los tests (vecinas, rótulos, ola) no mirarían lo que se pinta.
+- Los iconos de los 10 sitios sí siguen escritos a mano en `index.html`, cada uno en coordenadas locales de su celda (0-56 × 0-62) dentro de un `<g data-site transform="translate(x y)">`.
+
+**`site-labels.js`** (rehecho) — RF-112, RF-113, RF-141
+- `SITE_LAYOUT` se calcula a partir de `city-grid.js`. Por sitio:
+  - `cell`, su celda;
+  - `icon`: la franja superior de la celda, de alto ≥ 0,55 × 62 = 34,1 (se usa y 2-40, 38 unidades);
+  - `label`: la franja inferior, con 1 o 2 líneas.
+- `label.y = cell.y + 62 − alto del rótulo − 1`. El rótulo de 2 líneas (unos 28,5) se superpone a la parte baja del icono, y su fondo oscuro `rgb(6 10 34 / .8)` garantiza el contraste.
+- Se mantienen `LABEL_FONT = 11.5` (8,28 px a 320 px), `CHAR_WIDTH = 0.62` (estimación conservadora, válida también para la fuente de reserva, RF-145), `labelBox`, `labelLines`, `boxesOverlap` y `minLabelPx`.
+- Nueva `labelSpill(id)` → lo que el rótulo sale por la izquierda y por la derecha de su celda. Fairground (75,3 de ancho) sale 9,65 por cada lado: los 8 de la calle más 1,65 sobre las manzanas de relleno (2,2) y (4,2). Nightclub (68,2) sale 6,1 por cada lado.
+
+**`progress.js`** (nuevo) — RF-125 a RF-130
+```
+progressView({ litCount, total = 10, current })   // current = índice 0-9 de la pregunta en pantalla, o null en el final
+  → { percentText: `${litCount·10}%`, placesText: `${litCount} of ${total} places`,
+      segments: [{ filled: i < … según respondidas, current: i === current }] × total }
+```
+`segments[i].filled` sale del conjunto de preguntas respondidas (no de `litCount` en orden), porque con "Back" la respondida puede ir detrás de la actual. Recibe `answeredIndexes`, que da `litSites()` de `survey-state.js`.
+
+**`city-view.js`** (ampliado) — RF-133 a RF-138, RF-148
+```
+celebration(prevLit, nextLit, { firstPaint, toFinal }) → { siteId | null, ring: bool, toast: string | null }
+  firstPaint (reanudación, reapertura, primera pintura) → nada              (RF-138)
+  nuevo = ids en nextLit que no estaban en prevLit; si no hay → nada         (cambio de respuesta, RF-138)
+  toFinal (Next en Q10) → { siteId: nuevo, ring: false, toast: null }      (RF-148)
+  si no → { siteId: nuevo, ring: true, toast: `Lit up: ${SITE_NAMES[nuevo]}` }
+toastPlacement(siteId) → "top" si su fila es 3 (la de abajo), si no "bottom"  (RF-137)
+TOAST_MS = 1500; RING_MS = 1200; HALO_FADE_MS = 900
+```
+
+**`transition.js`** (ampliado) — RF-103, RF-108, RF-143
+- `TRANSITION_OUT_MS = 200` y `TRANSITION_IN_MS = 350`. `totalMs` ≤ 550; `REDUCED_FADE_MS` sigue en 200.
+- `planTransition` devuelve además `rise`: verdadero si `inMs > 0`, no hay movimiento reducido y `next` no es el final.
+
+**`intro-entry.js`** (ampliado) — RF-86, RF-119 a RF-124
+```
+INTRO_LOOPS = { bulbs: { count: 4, cycleMs: 1600 }, board: { count: 13, stepMs: 400 },
+                markers: { count: 3, cycleMs: 1500 } }
+flashesPerSecond(loop) → bulbs/markers: count / (cycleMs/1000) ; board: 1000 / stepMs     // ≤ 3 (definición de destello)
+BOARD_SEQUENCE = las 13 casillas con valor en orden de lectura (sin Community-200 ni Culture & identity-300)
+MARKER_COUNT = { start: 1000, duration: 800 }      // dentro de INTRO_ENTRY_MAX_MS (RF-123)
+markerValueAt(target, elapsedMs) → 0 antes de start; entero creciente (múltiplos de 10); target exacto desde start+duration
+markerCountPlan(elapsedMs) → "count" si elapsedMs < MARKER_COUNT.start, si no "skip"
+```
+Si el módulo carga tarde (con la red lenta, después de que los marcadores ya se vean), no cuenta y deja los valores fijos del HTML. Así nunca se ve un 300 que salta a 0.
+
+**`final-view.js`**: `FINAL_PHASES` no cambia (7,2 s). El test pasa a `TRANSITION_OUT_MS (200) + finalEndMs() = 7400 ≤ 8000` (RF-74).
+
+### 16.2 Tipografías — RF-142, RF-145, RNF-5, RNF-13
+- **Archivos**: `assets/fonts/` con:
+  - `big-shoulders-display-latin-700.woff2`, `big-shoulders-display-latin-800.woff2`, `figtree-latin-400.woff2`, `figtree-latin-600.woff2` y `figtree-latin-700.woff2`;
+  - `OFL-BigShouldersDisplay.txt` y `OFL-Figtree.txt`.
+- **Origen**:
+  - los woff2 del paquete de Fontsource, con una versión fija publicada hace ≥ 2 semanas (regla de MEMORY), en `https://cdn.jsdelivr.net/npm/@fontsource/figtree@<versión>/files/figtree-latin-<peso>-normal.woff2` y `…/@fontsource/big-shoulders-display@<versión>/files/big-shoulders-display-latin-<peso>-normal.woff2`;
+  - las licencias, del repositorio oficial `github.com/google/fonts` (`ofl/figtree/OFL.txt` y `ofl/bigshouldersdisplay/OFL.txt`).
+  - **Es una descarga de archivos de terceros: el implementer la confirma con el usuario antes de hacerla** y anota en la tarea la versión y el tamaño de cada archivo. Si no hay red, para y lo pide.
+- **CSS**: 5 `@font-face` con `src: url("../assets/fonts/…woff2") format("woff2")`, `font-display: optional` y `unicode-range` latino.
+  - `--display: "Big Shoulders Display", var(--sans)` y `--body: "Figtree", var(--sans)`, donde `--sans` es la pila actual del sistema (la fuente de reserva de RF-145).
+  - **Decisión**: `optional`. Si la fuente no ha llegado en el primer instante (~100 ms), el navegador usa la de reserva durante toda la visita y no hay cambio de fuente a mitad (RF-145, RF-102); en la visita siguiente ya sale de la caché. **Descartado**: `swap`, porque desplazaría los textos y el botón de la intro durante su entrada.
+- **Precarga**: `<link rel="preload" as="font" type="font/woff2" crossorigin>` solo para Figtree 400 y 700 (textos y botón de la intro), para no retrasar "Give feedback" (RNF-5). Las otras 3 se piden cuando se usan.
+- **Qué usa cada tipografía**:
+  - `--display` (800, mayúsculas): marca "Leisure City", porcentaje, `.screen__title` del selector, "Leisure for Society" y "Thank you", y rótulos de sitio (700);
+  - `--body`: el resto.
+  - El plató fija `font-family: var(--sans)` en sus `<text>` (`.plato text`), así que no cambia (RF-142).
+- **Comprobación**: test de tamaño y licencias (§16.9). En el MCP, `Network.setBlockedURLs(["*.woff2"])` con RF-88, RF-91, RF-113, RF-132 y RF-144 a 320 y 375, y ninguna petición a dominios de fuentes.
+
+### 16.3 Estilo de la encuesta — RF-17, RF-92 a RF-97, RF-144, RNF-4
+- **Paleta** (en `:root`), como en la demo:
+
+  | Variable | Valor | Uso |
+  |---|---|---|
+  | `--night` | `#060a22` | fondo |
+  | `--night-2` | `#0e1648` | resplandor radial de arriba en `body` |
+  | `--royal-deep` | `#0b1138` | relleno de opción |
+  | `--gold` | `#f6b93b` | acento principal |
+  | `--lit` | `#ffd36e` | luz cálida |
+  | `--text` | `#eef0ff` | texto |
+  | `--muted` | `#9aa3d6` | texto secundario |
+  | `--line` | `#2a3787` | líneas |
+  | `--seg-off` | — | segmento apagado; se elige un azul con ≥ 3:1 sobre `--night` (luminancia ≥ 0,11, p. ej. `#5c66a6`) y se mide (propuesta 40) |
+
+  Se borran las variables y reglas del estilo anterior que ya no se usen.
+- **Opciones** (`screens/question.js` y CSS):
+  - el botón `.option` no lleva `clip-path`. Dentro van `.option__shape` (el hexágono dorado: `clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 18px 100%, 0 50%)` y `padding: 2px`) y `.option__in` (el mismo polígono, fondo `--royal-deep`, `padding: .9rem 1.8rem`, `min-height: 56px`), con el texto y `.option__check`;
+  - se quita `.option__letter` y el `aria-label` pasa a ser solo la etiqueta (RF-17);
+  - elegida (RF-96): `.option__in` en `--gold`, texto `--night`, `.option__check` visible;
+  - el relleno lateral de 1,8 rem (más que los 18 px de la punta) evita que las puntas recorten el texto. A 320 px quedan unos 230 px de texto, que bastan para 3 líneas (RF-144);
+  - **foco** (RNF-4): `.option:focus-visible { outline: 3px solid var(--text); outline-offset: 3px }` en el botón, que no está recortado. Así se ve entero, con ≥ 3:1 y distinto de "elegida" (relleno dorado + icono).
+  - **Decisión**: el recorte en hijos y el contorno en el padre. **Descartado**: `clip-path` en el botón, como en la demo, porque recorta el `outline`.
+- **Botones** (RF-97):
+  - `.btn`: fondo `--gold`, texto `--night`, `border-radius: 12px`, `min-height: 52px`, `font: 700 1.05rem var(--body)`;
+  - `.btn--secondary` ("Back"): transparente, `box-shadow: inset 0 0 0 1.5px var(--line)`, texto `--text`, ≥ 44×44;
+  - `.btn:disabled`: `opacity: .45; cursor: not-allowed`;
+  - foco: `outline: 3px solid var(--text); outline-offset: 2px`;
+  - `:active { transform: scale(.98) }` va dentro de `@media (prefers-reduced-motion: no-preference)` (de paso, se corrige la mejora pendiente de `.country:active`).
+- **Títulos** (RF-95):
+  - `.screen__title`, `.final__title` y `.final__thanks`: `font: 800 … var(--display); text-transform: uppercase; letter-spacing: .02em`;
+  - `.question__text`: `700 1.35rem/1.25 var(--body)`, en minúsculas normales;
+  - `.question__count` y `"N of 10 places"`: `--muted`.
+- **RF-93**: sin degradados metálicos (`linear-gradient` con dorados o plateados) ni `text-shadow` o `-webkit-text-stroke` dorados. Lo comprueba un test.
+
+### 16.4 Ciudad en rejilla — RF-69 a RF-72, RF-76, RF-78, RF-111 a RF-113, RF-133, RF-140, RF-141
+- **`index.html`**:
+  - `#city` pasa a `viewBox="0 0 400 292"`, con el `clipPath#map-clip` y el `.city__border` de 400×292.
+  - Dentro de `.city__map`, en este orden:
+    1. suelo `--road`;
+    2. `<g class="city__streets">`, `<g class="city__fillers">` y `<g class="city__lamps">`, vacíos y aria-hidden;
+    3. `<g class="city__halos">`;
+    4. los 10 `<g class="site" data-site>`;
+    5. coches;
+    6. `<g class="city__labels">`;
+    7. ola.
+  - Se borran:
+    - las calles, manzanas, naturaleza, agua, árboles, sombras y los 16 rellenos actuales;
+    - las clases `.shadow`, `.filler__face`, `.filler__ridge`, `.green`, `.water`, `.tree`;
+    - las reglas CSS de esas clases (`city-face-on`, `city-green-on`, `city-water-on`, `water-ripple`).
+- **`js/app/city.js`**: nueva `mountCityGrid(svg, grid = city-grid)`, que se llama una vez al arrancar, antes de `mountCityLabels`. Crea con `createElementNS`:
+  - **calles**: las líneas discontinuas de la demo (`.street`) y el rectángulo interior;
+  - **relleno**: por cada celda de relleno, `<g class="filler" data-filler>` con el `<rect class="filler__pad">` de la celda y los edificios de `fillerBuildings(11)`: `.filler__b` con la ventana `.win` del edificio, en un `<g class="filler__lights">`. Un tercio lleva `data-twinkle` (para el bucle del final);
+  - **farolas**: `<circle class="lamp" r="1.4">` en `lampPoints()`, repartidas en `.lamps__a` y `.lamps__b`;
+  - cada elemento lleva `style="--fd: waveDelayFraction(x, y)"` para la ola (§16.7).
+- **Sitios** (RF-71, RF-133): los 10 iconos se redibujan dentro de 0-56 × 0-38 con los motivos de la demo y los actuales:
+  - park: césped, camino, estanque y árboles (salvedad de RF-110);
+  - concert-hall: piano de cola;
+  - museum: patio y columnas;
+  - theatre: anfiteatro con escenario;
+  - cinema: película y marquesina;
+  - fairground: noria en `.wheel` y carpa;
+  - town-square: pavimento y fuente;
+  - food-market: puestos con toldo;
+  - nightclub: neón;
+  - stadium: campo y torres de luz.
+
+  Cada sitio mantiene `.body`, `.lt` y `.lt-stroke` (apagado y encendido como ahora) y lleva, además:
+  - `<rect class="site__ring">` con la caja de la celda (RF-134);
+  - en `.city__halos`, una `<ellipse class="site__halo" data-halo="<id>" fill="url(#glow)">` centrada en la celda, de radio unas 50 unidades (como la demo), por debajo de los iconos y los rótulos, así que nunca tapa un rótulo (RF-133).
+- **Encendido**: `paintCity(svg, view, { instant })` pone `is-lit` en `[data-site]`, `[data-halo]` y `[data-site-label]`.
+  - `.site__halo { opacity: 0; transition: opacity 900ms }` pasa a `.is-lit { opacity: 1 }`.
+  - Con `instant` (primera pintura, RF-138), `city.js` pone `data-instant` en el SVG durante un fotograma (`transition: none`) y luego lo quita.
+- **Tamaños** (RF-76, RF-78):
+  - a 375 px el mapa mide 343 × 250,4 (37,5 % de 667);
+  - a 320 px, 288 × 210,2.
+
+### 16.5 Cabecera, barra, anillo y aviso — RF-125 a RF-138, RF-146, RF-148
+- **`index.html`**, dentro de `#city-wrap` (así hereda el comportamiento de la ciudad en las transiciones, RF-131):
+  ```html
+  <header class="hud" aria-hidden="true"><span class="hud__brand">Leisure City</span>
+    <span class="hud__meter"><span class="hud__pct">0%</span><small class="hud__count">0 of 10 places</small></span></header>
+  <div class="city-box"> <svg id="city" …> <p class="city__toast" aria-hidden="true"></p> </div>
+  <div class="segs" aria-hidden="true"></div>      <!-- 10 <i> creados por JS -->
+  ```
+  `aria-hidden` en la cabecera, el aviso y la barra (propuesta 27, RNF-4). El `aria-label` del SVG sigue siendo la alternativa de RF-75.
+- **Nuevo `js/app/hud.js`** (adaptador de interfaz):
+  - `mountHud(wrap)`: crea los 10 segmentos;
+  - `paintHud(wrap, progressView(...))`: textos y clases `is-filled` / `is-current`;
+  - `celebrate(wrap, celebration(...))`:
+    - con `ring`, pone `is-new` en el `[data-site]` y se lo quita a los `RING_MS`;
+    - con `toast`, pone el texto con `textContent` y `data-place="top|bottom"` (`toastPlacement`), lo muestra y lo oculta a los `TOAST_MS` con un único `setTimeout` que se cancela si llega otro aviso (RF-136).
+- **`main.js`**:
+  - guarda `prevLit` (los sitios pintados por última vez);
+  - en `update()`, a la vez que `paintCity` (en el mismo tick del clic, RF-105 y RF-127), llama a `paintHud` y a `celebrate(celebration(prevLit, lit, { firstPaint: shown === null, toFinal: target es "final" }))`;
+  - en el final, `current` es null (RF-130).
+- **CSS**:
+  - `.hud`: `display: flex; justify-content: space-between; align-items: flex-end; max-height: 52px`;
+  - `.hud__brand`: `800 1.15rem/1 var(--display)`, mayúsculas, `letter-spacing: .14em`, `--gold`;
+  - `.hud__pct`: `800 36px/.9 var(--display)`, `tabular-nums`;
+  - `.hud__count`: `.78rem/1.3`, `--muted`, `white-space: nowrap`;
+  - `.segs`: `grid-template-columns: repeat(10, 1fr); gap: 4px`. Cada `i` mide 6 px de alto, con radio de 3, y es `--seg-off`, o `--gold` si `.is-filled`; `.is-current` añade `outline: 1.5px solid var(--text); outline-offset: 1px` (también con movimiento reducido; sin pulso, RNF-2);
+  - `#city-wrap` es una columna con `gap: 8px`;
+  - `.site__ring`: `fill: none; stroke: var(--gold); stroke-width: 2; opacity: 0; transform-box: fill-box; transform-origin: center`, y `.site.is-new .site__ring { animation: ring 1.1s ease-out }` con `@keyframes ring { from { opacity: .9; transform: scale(1) } to { opacity: 0; transform: scale(1.22) } }`. El 22 % de crecimiento no llega al 25 % de RF-134. En las celdas del borde, el `#map-clip` recorta lo que salga;
+  - `.city__toast`: `position: absolute; left: 50%`, `bottom: 8px` o `top: 8px` según `data-place`, `transform: translate(-50%, 8px)`, `opacity: 0`, `transition: opacity .3s, transform .3s`; `.is-shown` lo deja en `translate(-50%, 0)` y opacidad 1. Fondo `--night`, borde `--gold`, texto `--lit` (≥ 4.5:1), `pointer-events: none`;
+  - movimiento reducido: la regla global ya quita la animación del anillo y deja las transiciones en 200 ms. Se añade `transform: translate(-50%, 0)` fijo para el aviso (RF-77).
+- **Cálculo de RF-132** (a 375×667):
+
+  | Elemento | Alto |
+  |---|---|
+  | cabecera (32,4 del porcentaje + 16,2 de "N of 10 places") | 48,6 px |
+  | separación | 8 px |
+  | mapa | 250,4 px |
+  | separación | 8 px |
+  | barra | 6 px |
+  | **total** | **321 px ≤ 333 px (50 %)** |
+
+  - El mapa solo ocupa un 37,5 % (≤ 40 %, RF-78).
+  - A 320×568: 48,6 + 8 + 210,2 + 8 + 6 = 280,8 px.
+  - En la validación se miden los `getBoundingClientRect()` reales.
+- **Scroll** (RF-146): la cabecera, la ciudad y la barra van en el flujo, sin `position: fixed` ni `sticky`.
+
+### 16.6 Transiciones con "rise" y vuelta arriba — RF-103, RF-104, RF-106 a RF-108, RF-131, RF-143, RF-147
+- `fade.js`: `fadeIn(els, ms, { rise })` usa `[{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }]` si `rise`, y si no solo opacidad. `fadeOut` sigue siendo solo de opacidad.
+- `main.js`: pasa `plan.rise`.
+  - Entre preguntas solo entra `#screen-question`, así que `#city-wrap`, con la cabecera y la barra, no se mueve.
+  - Del selector a la Q1 (`cityFades`) entran juntos la sección y `#city-wrap`, con la misma subida.
+  - De la Q10 al final, `inMs` es 0: no hay "rise", y el mapa pasa a su tamaño del final al hacerse `render()` (RF-143).
+  - La puerta usa `plan.totalMs`, que ahora es 550.
+- **Vuelta arriba** (RF-147): al empezar `fadeIn`, `window.scrollTo(0, 0)` y después `title.focus({ preventScroll: true })`. Se cambia el `focus()` de `main.js` (línea ~98), que si no haría scroll hasta el título.
+
+### 16.7 Final en la rejilla — RF-53, RF-54, RF-56, RF-73, RF-74, RF-79, RF-114 a RF-118, RF-130, RF-140
+- **Ola desde el centro** (RF-73):
+  - `.city__wave` pasa a ser un `<circle cx="200" cy="146" r="250" fill="url(#wave-ring)">` (gradiente radial con un anillo claro) que anima `transform: scale(0 → 1)` y `opacity` durante `--final-wave-dur` (1,4 s), con `transform-box: fill-box; transform-origin: center`;
+  - cada `.filler__b`, `.win`, `.lamp` y `.street` se enciende con `animation: city-on 300ms ease calc(var(--final-wave-start) + var(--final-wave-dur) * var(--fd)) both`. Sustituye a `--fx`, que era la posición horizontal;
+  - las farolas encendidas pasan a `--lit` (RF-140).
+- **Coches** (RF-114): 4 `.car` sobre las calles nuevas (`STREETS.h` en y = 76, 146 y 216, en sentidos alternos, y `STREETS.v` en x = 200), con keyframes que solo mueven su eje, de borde a borde, como en T27. El test de "sobre una calle de su eje" usa `STREETS`.
+- **Bucles vivos** (RF-115 a RF-117):
+  - se mantienen las ventanas (`data-twinkle`), las farolas (`.lamps__a/b`), el estadio, la noria y la discoteca, con los mismos ciclos;
+  - se borra el agua;
+  - todo cuelga de `[data-final-live] #city[data-all-lit]`, como ahora.
+- **Disposición** (RF-79, RF-130): en `[data-screen="final"]`, `#city-wrap` es la columna flex que ya existe (`flex: 1 1 auto`), con la cabecera y la barra arriba y abajo (`flex: none`) y `.city-box` con `flex: 1; min-height: 0`; el SVG con `height: 100%; max-width: 100%` (`meet`).
+  - Banderas y textos siguen en el panel `.screen--final`, en el flujo, así que nada se solapa en el estado final.
+  - La cabecera muestra "100%" y "10 of 10 places", con los 10 segmentos `is-filled` y ninguno `is-current`.
+- **RF-74**: 200 + 7200 = 7400 ms ≤ 8000.
+
+### 16.8 Intro: más bucles y cuenta de los marcadores — RF-8, RF-85, RF-86, RF-87, RF-119 a RF-124
+Todo en CSS, salvo la cuenta. Como en §15.2, el bucle anima a los hijos y la entrada al grupo `plato__enter`.
+- **Bombillas** (RF-119): las 4 `.plato__bulb` con `animation: plato-chase 1.6s ease-in-out infinite` y `animation-delay` de 0, 0,4, 0,8 y 1,2 s en el sentido de las agujas del reloj. La opacidad va de 1 a 0,55 y nunca a 0.
+- **Tablero** (RF-120):
+  - sobre cada una de las 13 casillas con valor va un `<rect class="plato__cell-glow">` (blanco al 0 %, en el mismo `<g>` del tablero) con `animation: plato-cell 5.2s linear infinite` y `animation-delay: calc(var(--i) * 400ms)`;
+  - `@keyframes plato-cell` sube a 0,35 entre el 0 y el 3,8 % y baja al 7,7 % (los 400 ms de su turno);
+  - las 2 casillas vacías no tienen `rect`, y los `<text>` no se tocan.
+- **Marcadores** (RF-121): `<rect class="plato__score-glow">` sobre cada pantalla de marcador, con `animation: plato-screen 1.5s ease-in-out infinite alternate` y desfases de 0, 0,5 y 1 s.
+- **Focos y suelo** (RF-122):
+  - `.plato__spot` gira ±6° con `transform-origin` en su enganche del riel (4 s, `alternate`), en un `<g>` hijo distinto del que ya tiene `plato-glow-spot`, para que no se pisen;
+  - la elipse del suelo hace `translateX(±4%)` (7 s, `alternate`).
+  - Todo dentro del plató, sin tocar `width` ni `height`, así que no aparece scroll.
+- **Cuenta** (RF-123), en `screens/intro.js`:
+  - `show()` lee `elapsed` del `currentTime` de la animación de entrada del grupo `people`;
+  - si `markerCountPlan(elapsed)` es `"count"` y no hay movimiento reducido, pone los 3 marcadores a 0 (aún invisibles, porque `people` entra a los 950 ms) y, con `requestAnimationFrame`, escribe `markerValueAt` solo cuando el valor cambia. Para al llegar al valor, en `hide()` o al pulsar "Give feedback" (RF-124);
+  - el HTML lleva los valores finales: sin JS, con movimiento reducido o si carga tarde, se ven 300, 500 y 200 (RF-85, RF-87).
+- **Destellos** (RF-86): `flashesPerSecond` da 2,5 (bombillas), 2,5 (tablero) y 2 (marcadores). Un test comprueba que el CSS usa los valores de `INTRO_LOOPS`.
+
+### 16.9 Tests (`node --test`)
+| Archivo | Cambio | Cubre |
+|---|---|---|
+| tests/city-grid.test.js | **Nuevo**:<br>• 10 `SITE_CELLS` únicas dentro de 6×4 y 14 de relleno<br>• RF-139: ningún par consecutivo es vecino, también en diagonal, y el orden no es el de lectura ni el de columnas<br>• Fairground y Nightclub con relleno a izquierda y derecha<br>• `cellBox` dentro de 400×292<br>• ≥ 20 farolas, todas sobre calles (fuera de las celdas) y dentro del mapa<br>• `waveDelayFraction`: 0 en el centro, ≤ 1 y creciente con la distancia<br>• `fillerBuildings(11)`: fijo, de 2 a 4 por celda y dentro de su celda | RF-69, RF-70, RF-73, RF-139, RF-140 |
+| tests/site-labels.test.js | **Rehecho**:<br>• rótulo dentro de su celda en vertical<br>• icono ≥ 55 % del alto<br>• lo que sale en horizontal no toca ninguna celda de otro sitio ni sale del borde<br>• sin solapes entre rótulos<br>• `minLabelPx(288) ≥ 8`<br>• líneas = `SITE_NAMES` | RF-112, RF-113, RF-141 |
+| tests/progress.test.js | **Nuevo**:<br>• 0 → "0%" / "0 of 10 places"<br>• 4 → "40%"<br>• 10 → "100%"<br>• segmentos rellenos = respondidas (también fuera de orden tras Back)<br>• `current` marca uno<br>• final sin actual | RF-125 a RF-130 |
+| tests/city-view.test.js | **Ampliar** `celebration`:<br>• sitio nuevo → anillo y "Lit up: Cinema"<br>• ya encendido → nada<br>• `firstPaint` → nada<br>• `toFinal` → sin anillo ni aviso<br>• no muta las entradas<br>**Ampliar** `toastPlacement`: fila 3 → top; resto → bottom | RF-133 a RF-138, RF-148 |
+| tests/transition.test.js | **Actualizar**: 200/350, `totalMs` ≤ 550, `rise` verdadero entre preguntas y del selector a la Q1, falso con movimiento reducido y hacia el final | RF-103, RF-108, RF-143 |
+| tests/intro-entry.test.js | **Ampliar**:<br>• `flashesPerSecond` ≤ 3 en los 3 bucles<br>• `BOARD_SEQUENCE`: 13 casillas, sin las vacías<br>• `MARKER_COUNT` termina ≤ 2000<br>• `markerValueAt`: 0, creciente y valor exacto al final<br>• `markerCountPlan` | RF-86, RF-119 a RF-121, RF-123 |
+| tests/final-view.test.js | **Actualizar**: 200 + `finalEndMs()` ≤ 8000 | RF-74 |
+| tests/city.test.js | **Ampliar** (DOM falso):<br>• `mountCityGrid` crea 14 rellenos, las farolas y las calles con `--fd`, sin `innerHTML`<br>• `paintCity` enciende halo y rótulo | RF-70, RF-133, RF-140 |
+| tests/hud.test.js | **Nuevo** (DOM falso):<br>• `paintHud` pone textos y clases<br>• `celebrate` pone `is-new` y el aviso, y un segundo aviso sustituye al primero (un solo temporizador) | RF-125 a RF-136 |
+| tests/markup.test.js | **Quitar** los tests de la ciudad anterior: 16 rellenos, sombras `translate(2.5 3)`, zonas verdes, agua, árboles, cajas de icono en coordenadas absolutas, `--fx` y `water-ripple`.<br>**Nuevo**:<br>• viewBox 400×292, recorte y borde<br>• orden de grupos<br>• 10 `data-site` con `.site__ring` y halo<br>• iconos dentro de 0-56 × 0-38 (rect/circle/ellipse)<br>• cabecera, aviso y barra `aria-hidden` dentro de `#city-wrap`<br>• `@keyframes ring` con escala ≤ 1,25 y duración ≤ 1,2 s<br>• aviso con `pointer-events: none`<br>• opción sin `.option__letter` y sin `clip-path` en `.option`, con `:focus-visible` en `.option`<br>• `.btn` con `min-height` ≥ 52 px<br>• sin `linear-gradient` dorado ni `text-shadow` dorado<br>• `.plato text` con `var(--sans)`<br>• fuentes de §16.2: ≤ 5 woff2 en `assets/fonts`, ≤ 150 KB en total (`fs.stat`), 2 OFL, `@font-face` con `font-display: optional` y `url()` relativas, sin `http` en ninguna hoja ni en `index.html` para fuentes<br>• CSS de los bucles de la intro = `INTRO_LOOPS`<br>• ningún `position: fixed`/`sticky` en `.hud`, `.city-wrap` ni `.segs`<br>**Se mantienen**: bucles ≥ 1 s y "reduced motion stops every animation" | RF-17, RF-86, RF-93, RF-95 a RF-97, RF-111, RF-119 a RF-122, RF-131, RF-134, RF-137, RF-142, RF-144, RF-146, RNF-4, RNF-13 |
+
+Fuera de `node --test`, todo se comprueba con el MCP Chrome DevTools, como en §15.9. Además:
+- con las fuentes bloqueadas;
+- `getBoundingClientRect()` para RF-132;
+- `getAnimations()` para el anillo, el aviso y los bucles de la intro;
+- un scroll forzado en Q7/Q8 antes de "Next" para RF-147.
+
+### 16.10 Rendimiento y movimiento reducido — RNF-2, RNF-12
+- **Lo que se anima** sigue siendo solo `opacity` y `transform`:
+  - el halo, el anillo, el aviso, la ola (escala de un círculo) y los bucles de la intro;
+  - el resplandor del tablero y de los marcadores (`rect` con opacidad);
+  - no hay `filter`.
+- **JS por fotograma**: solo la cuenta de los marcadores (≤ 0,8 s, un `textContent` por cambio de valor).
+- **Medición**, como en §15.8, añadiendo:
+  - 3 encendidos de sitio seguidos (halo, anillo y aviso);
+  - la ola del final con unos 45 edificios, unas 50 farolas y los coches;
+  - 10 s de los bucles nuevos de la intro.
+
+  Ninguna tarea debe pasar de 50 ms.
+- **Movimiento reducido**:
+  - la regla global quita el anillo, el "rise" (`fadeIn` sin `transform`), los bucles de la intro, la ola y los coches;
+  - la cuenta no se hace;
+  - las transiciones del halo, el aviso y el rótulo quedan en 200 ms;
+  - el segmento actual se marca sin pulso (RNF-2, RF-77, RF-87, RF-108, RF-118, RF-124).
+
+### 16.11 Cobertura del cambio
+| Parte | RF / RNF |
+|---|---|
+| city-grid.js + `mountCityGrid` + iconos en celdas + CSS de la rejilla | RF-69 a RF-72, RF-76, RF-78, RF-111, RF-139, RF-140, RF-141 |
+| site-labels.js rehecho + `mountCityLabels` | RF-112, RF-113, RF-141 |
+| progress.js + hud.js + cabecera y barra | RF-125 a RF-132 |
+| city-view.js (`celebration`, `toastPlacement`) + hud.js (`celebrate`) + halo, anillo y aviso | RF-133 a RF-138, RF-148, RF-77 |
+| transition.js (200/350, `rise`) + fade.js + main.js (vuelta arriba y foco) | RF-103, RF-104, RF-106 a RF-108, RF-131, RF-143, RF-146, RF-147, RNF-4 |
+| Fuentes + `@font-face` + precarga | RF-142, RF-145, RNF-5, RNF-13 |
+| Paleta, opciones hexagonales, botones, títulos y foco | RF-17, RF-35, RF-92 a RF-97, RF-144, RNF-4 |
+| Bucles de la intro + intro-entry.js + cuenta en intro.js | RF-8, RF-85, RF-86, RF-87, RF-119 a RF-124 |
+| Ola radial, farolas, coches, bucles vivos y disposición del final | RF-53, RF-54, RF-56, RF-73, RF-74, RF-79, RF-114 a RF-118, RF-130 |
+| Medición y bloque de movimiento reducido | RNF-2, RNF-12 |
+
+### 16.12 Al cerrar el cambio
+- **MEMORY.md**:
+  - estilo de la demo con hexágonos sin letras (se retira "sin look de concurso");
+  - fuentes propias con `optional`;
+  - rejilla 6×4 con el reparto de la propuesta 29 (se retiran los 16 rellenos, árboles y estanque);
+  - transiciones de 200 + 350 ms con "rise";
+  - cabecera y barra en `#city-wrap`;
+  - errores nuevos, si aparecen.
+- **AGENTS.md**:
+  - estructura: `assets/fonts/` (woff2 + OFL);
+  - regla: "sin servicios externos de fuentes ni de imágenes".
+

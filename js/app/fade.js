@@ -1,4 +1,5 @@
-// Opacity fades for screen and question changes (RF-103, RF-104, RF-108), with the Web Animations API.
+// Fades for screen and question changes (RF-103, RF-104, RF-108, RF-143), with the Web Animations API: the
+// fade-out is opacity only; the fade-in can also rise 10 px ("rise", RF-143), never with reduced motion.
 // UI adapter only: the durations come from js/lib/transition.js. WAAPI and not CSS keyframes because the
 // question section stays the same between two questions (a CSS animation would need a forced reflow to
 // restart) and because the reduced-motion rule (animation: none !important) must not cancel the 200 ms fade
@@ -23,12 +24,20 @@ export function fadeOut(elements, ms) {
   }
 }
 
-/** Fades the elements in from opacity 0 in `ms`, then cancels the animation so no style is left. 0 → shown at once. */
-export function fadeIn(elements, ms) {
+// Keyframes of the fade-in: plain, or with the 10 px rise of the reference demo (plan §16.6).
+const FADE_IN = [{ opacity: 0 }, { opacity: 1 }];
+const RISE_IN = [{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }];
+
+/**
+ * Fades the elements in from opacity 0 in `ms`, then cancels the animation so no style is left. 0 → shown at once.
+ * rise: they also move up from 10 px below (RF-143); the caller only asks for it without reduced motion.
+ */
+export function fadeIn(elements, ms, { rise = false } = {}) {
   cancelFades(elements);
   if (!(ms > 0)) return;
+  const keyframes = rise ? RISE_IN : FADE_IN;
   for (const el of elements) {
-    const anim = el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ms, easing: "ease-out" });
+    const anim = el.animate(keyframes, { duration: ms, easing: "ease-out" });
     fades.set(el, anim);
     anim.onfinish = () => {
       anim.cancel();

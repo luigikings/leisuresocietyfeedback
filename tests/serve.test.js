@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
-import { contentTypeFor, resolveSafePath } from "../scripts/serve.mjs";
+import { cacheControlFor, contentTypeFor, resolveSafePath } from "../scripts/serve.mjs";
 
 const ROOT = path.resolve("/srv/site");
 
@@ -12,12 +12,22 @@ test("contentTypeFor returns the right MIME type for known extensions", () => {
   assert.equal(contentTypeFor("css/survey.css"), "text/css; charset=utf-8");
   assert.equal(contentTypeFor("assets/flags/es.svg"), "image/svg+xml");
   assert.equal(contentTypeFor("data.json"), "application/json; charset=utf-8");
+  assert.equal(contentTypeFor("assets/fonts/figtree-latin-400.woff2"), "font/woff2");
 });
 
 test("contentTypeFor is case-insensitive and falls back to octet-stream", () => {
   assert.equal(contentTypeFor("INDEX.HTML"), "text/html; charset=utf-8");
   assert.equal(contentTypeFor("file.unknownext"), "application/octet-stream");
   assert.equal(contentTypeFor("noextension"), "application/octet-stream");
+});
+
+test("cacheControlFor caches only the .woff2 fonts for a year; everything else is no-store (T33, user decision)", () => {
+  for (const f of ["assets/fonts/figtree-latin-400.woff2", "assets/fonts/BIG-SHOULDERS-DISPLAY-LATIN-800.WOFF2"]) {
+    assert.equal(cacheControlFor(f), "public, max-age=31536000", f);
+  }
+  for (const f of ["index.html", "js/app/main.js", "css/survey.css", "assets/flags/it.svg", "assets/fonts/OFL-Figtree.txt", "noext"]) {
+    assert.equal(cacheControlFor(f), "no-store", f);
+  }
 });
 
 test("resolveSafePath maps / to index.html", () => {

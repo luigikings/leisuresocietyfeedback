@@ -6,10 +6,10 @@ El público entra por QR, responde 10 preguntas y una ciudad nocturna se ilumina
 - HTML, CSS y JavaScript sin framework ni build. Gráficos en SVG; animaciones en CSS y fundidos entre pantallas con Web Animations API.
 - Supabase (plan gratuito) como base de datos y Auth para /admin. El navegador habla directamente con Supabase.
 - Hosting: GitHub Pages (repo público `luigikings/leisuresocietyfeedback`).
-- Estructura: `index.html` (encuesta) · `css/` · `js/config.js` (URL y clave publicable) · `js/content.js` (preguntas, países, `CONTENT.version`) · `js/lib/` (lógica pura, testeada) · `js/app/` (DOM, red, pantallas en `screens/`) · `assets/` (banderas SVG e icono de Other; los iconos de la ciudad van en línea en `index.html`) · `supabase/migrations/` (SQL) · `scripts/` (`serve.mjs`, `check-db.mjs`) · `tests/` · `docs/supabase.md` (puesta en marcha de Supabase).
+- Estructura: `index.html` (encuesta) · `css/` · `js/config.js` (URL y clave publicable) · `js/content.js` (preguntas, países, `CONTENT.version`) · `js/lib/` (lógica pura, testeada) · `js/app/` (DOM, red, pantallas en `screens/`) · `assets/` (`flags/` banderas SVG, `icons/` icono de Other y `fonts/` woff2 autoalojados + licencias OFL; los iconos de la ciudad van en línea en `index.html`) · `supabase/migrations/` (SQL) · `scripts/` (`serve.mjs`, `check-db.mjs`) · `tests/` · `docs/supabase.md` (puesta en marcha de Supabase).
 
 ## Comandos
-- Arrancar: `node scripts/serve.mjs` (o `npm start`) → http://localhost:8080.
+- Arrancar: `node scripts/serve.mjs [puerto]` (o `npm start`) → http://localhost:8080 por defecto.
 - Tests: `node --test` (test runner nativo de Node 24, sin dependencias).
 
 ## Convenciones

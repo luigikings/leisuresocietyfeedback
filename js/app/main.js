@@ -12,8 +12,10 @@ import { questionView } from "../lib/question-view.js";
 import { createStorage } from "./storage.js";
 import { createSync } from "./sync.js";
 import { saveResponse } from "./db.js";
-import { mountCityLabels, paintCity } from "./city.js";
-import { cityView, holdFullLight } from "../lib/city-view.js";
+import { mountCityGrid, mountCityLabels, paintCity } from "./city.js";
+import { cityView, holdFullLight, celebration } from "../lib/city-view.js";
+import { progressView } from "../lib/progress.js";
+import { mountHud, paintHud, celebrate } from "./hud.js";
 import { planTransition, openGate, closeGate, gateAllows } from "../lib/transition.js";
 import { fadeOut, fadeIn, cancelFades } from "./fade.js";
 import { prefersReducedMotion } from "./motion.js";
@@ -79,7 +81,29 @@ const city = document.getElementById("city");
 let shownScreen = null;
 let shownQuestion = null;
 
-let questionScreen = null; // mounted below, before the first render
+// Sites lit at the last paint of the header; null until the first paint, which never celebrates (RF-138).
+let prevLit = null;
+
+/**
+ * Paints the progress header and the question bar for a survey state and plays the ring and the "Lit up" toast
+ * of a newly lit site (RF-125 to RF-138, RF-148). Called with every paint of the city, so the header changes in
+ * the same tick as the site (RF-127). toFinal: Next on Q10 lights its site without ring or toast (RF-148).
+ */
+function paintProgress(survey, { toFinal = false } = {}) {
+  const lit = litSites(survey, CONTENT);
+  const answeredIndexes = CONTENT.questions.flatMap((q, i) => (survey.answered.includes(q.id) ? [i] : []));
+  paintHud(cityWrap, progressView({
+    litCount: lit.length,
+    total: CONTENT.questions.length,
+    current: survey.screen === "question" ? survey.current - 1 : null, // no current segment on the final (RF-130)
+    answeredIndexes,
+  }));
+  celebrate(cityWrap, celebration(prevLit ?? [], lit, { firstPaint: prevLit === null, toFinal }));
+  prevLit = lit;
+}
+
+let introScreen = null; // mounted below, before the first render
+let questionScreen = null;
 let finalScreen = null;
 
 function render() {
@@ -87,15 +111,25 @@ function render() {
   appRoot.dataset.screen = survey.screen; // per-screen layout in CSS (plan §14.4, §14.5)
   for (const [name, el] of Object.entries(sections)) el.hidden = name !== survey.screen;
   cityWrap.hidden = survey.screen !== "question" && survey.screen !== "final";
-  paintCity(city, cityView(litSites(survey, CONTENT)));
+  // first paint (resume or reopening): halos and labels show at once, with no fade (RF-112, RF-138)
+  paintCity(city, cityView(litSites(survey, CONTENT)), { instant: shownScreen === null });
+  paintProgress(survey);
   if (survey.screen === "question") questionScreen.paint(questionView(survey, CONTENT));
 
   const changed = survey.screen !== shownScreen || (survey.screen === "question" && survey.current !== shownQuestion);
   // Final: plays once right after Q10; on reopening a finished survey it shows the last state (RF-53, RF-56).
   if (survey.screen === "final" && shownScreen !== "final") finalScreen.show({ animate: shownScreen === "question" });
   else if (survey.screen !== "final" && shownScreen === "final") finalScreen.hide();
-  // Focus goes to the title of the new screen (RNF-4); not on the very first paint of the page.
-  if (changed && shownScreen !== null) sections[survey.screen].querySelector("[data-title]")?.focus();
+  // Intro: the markers count during the entry and stop as soon as the intro leaves (RF-123, RF-124).
+  if (survey.screen === "intro" && shownScreen !== "intro") introScreen.show();
+  else if (survey.screen !== "intro" && shownScreen === "intro") introScreen.hide();
+  // Focus goes to the title of the new screen (RNF-4); not on the very first paint of the page. render() runs
+  // as the fade-in starts: the page goes back to the top first, so the header, the city and the bar (with the
+  // halo, ring and toast of the site just lit) are in view, and the focus does not scroll it again (RF-147).
+  if (changed && shownScreen !== null) {
+    window.scrollTo(0, 0);
+    sections[survey.screen].querySelector("[data-title]")?.focus({ preventScroll: true });
+  }
   shownScreen = survey.screen;
   shownQuestion = survey.current;
 }
@@ -140,6 +174,7 @@ function update(nextSurvey) {
   // Light the answered site now; towards the final the full light-up waits for the wave (RF-73, RF-105).
   const view = cityView(litSites(nextSurvey, CONTENT));
   paintCity(city, nextSurvey.screen === "final" ? holdFullLight(view) : view);
+  paintProgress(nextSurvey, { toFinal: nextSurvey.screen === "final" }); // same tick as the site (RF-127)
 
   gate = closeGate(gate, performance.now(), plan.totalMs);
   const leaving = fading(prev.screen, plan.cityFades);
@@ -148,7 +183,8 @@ function update(nextSurvey) {
   const enter = () => {
     cancelFades(leaving); // a hidden section must not keep opacity 0 for the next time it shows
     render();
-    fadeIn(fading(local.survey.screen, plan.cityFades), plan.inMs);
+    // With "rise" (RF-143): country → Q1 the city box rises with the section; between questions only the panel.
+    fadeIn(fading(local.survey.screen, plan.cityFades), plan.inMs, { rise: plan.rise });
     // Once the gate opens, repaint the question: text typed during the fade was dropped (plan §15.3).
     openTimer = setTimeout(() => {
       if (local.survey.screen === "question") questionScreen.paint(questionView(local.survey, CONTENT));
@@ -164,7 +200,7 @@ function update(nextSurvey) {
 // during a transition it is ignored and history.js puts the guard back as always (RF-106).
 const historyGuard = createHistoryGuard({ onBack: () => act(() => update(systemBack(local.survey))) });
 
-mountIntro(sections.intro, {
+introScreen = mountIntro(sections.intro, {
   onStart: () => act(() => {
     historyGuard.ensureGuard();
     update(start(local.survey));
@@ -216,6 +252,8 @@ finalScreen = mountFinal(sections.final, {
   reducedMotion: prefersReducedMotion,
 });
 
+mountCityGrid(city); // streets, filler blocks and lamps from js/lib/city-grid.js (plan §16.4)
+mountHud(cityWrap, CONTENT.questions.length); // the 10 segments of the question bar (RF-128)
 mountCityLabels(city); // site labels from SITE_LAYOUT, before the first paint so a resume shows them without a fade
 render();
 

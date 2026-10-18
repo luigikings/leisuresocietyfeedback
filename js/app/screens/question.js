@@ -1,6 +1,6 @@
-// Question screen: options A/B/C as a radio group (letter in a round "bulb", check icon when chosen), one text
-// field whose label depends on the chosen option, the characters-left counter and Back/Next (RF-17 to RF-36,
-// RF-96, RNF-4). It only paints the object from questionView() and reports user actions; every rule lives in js/lib/.
+// Question screen: options A/B/C as a radio group of gold hexagons with no visible letter (check icon when chosen),
+// one text field whose label depends on the chosen option, the characters-left counter and Back/Next (RF-17 to
+// RF-36, RF-93, RF-96, RNF-4). The letter stays in data-letter only (RF-17). It only paints the object from questionView() and reports user actions; every rule lives in js/lib/.
 import { optionForKey } from "../../lib/question-view.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -19,9 +19,10 @@ function checkIcon() {
   circle.setAttribute("r", "11");
   circle.setAttribute("fill", "currentColor");
   const tick = document.createElementNS(SVG_NS, "path");
+  tick.setAttribute("class", "option__tick"); // stroke colour in CSS: gold on the dark disc
   tick.setAttribute("d", "M6.5 12.5l3.5 3.5 7.5-8");
   tick.setAttribute("fill", "none");
-  tick.setAttribute("stroke", "#0b1026");
+  tick.setAttribute("stroke", "currentColor");
   tick.setAttribute("stroke-width", "2.6");
   tick.setAttribute("stroke-linecap", "round");
   tick.setAttribute("stroke-linejoin", "round");
@@ -30,24 +31,30 @@ function checkIcon() {
   return wrap;
 }
 
+/**
+ * .option (the unclipped button, so its focus outline shows whole) > .option__shape (the gold hexagon, the border)
+ * > .option__in (the inner night hexagon) with the label and the check (RF-93, RF-144, plan §16.3).
+ */
 function optionButton({ letter, label }) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "option";
   btn.setAttribute("role", "radio");
   btn.dataset.letter = letter;
-  btn.setAttribute("aria-label", `${letter}: ${label}`); // explicit name: not every reader takes it from content
+  btn.setAttribute("aria-label", label); // explicit name: not every reader takes it from content; no letter (RF-17)
 
-  const box = document.createElement("span");
-  box.className = "option__letter";
-  box.setAttribute("aria-hidden", "true");
-  box.textContent = letter;
+  const shape = document.createElement("span");
+  shape.className = "option__shape";
+  const inner = document.createElement("span");
+  inner.className = "option__in";
 
   const text = document.createElement("span");
   text.className = "option__label";
   text.textContent = label;
 
-  btn.append(box, text, checkIcon());
+  inner.append(text, checkIcon());
+  shape.append(inner);
+  btn.append(shape);
   return btn;
 }
 

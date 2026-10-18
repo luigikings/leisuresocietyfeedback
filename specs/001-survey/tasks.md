@@ -240,3 +240,326 @@ Animaciones y ciudad. Mismas reglas: tests primero (en rojo), después el códig
     - Capturas en el scratchpad de la sesión: `t28-01-intro-375.png`, `t28-02-q6-5lit-375.png`, `t28-03-q9-offline-375.png`, `t28-04-q10-9lit-offline-375.png`, `t28-05-final-live-375.png`, `t28-06-q10-9lit-320.png`, `t28-07-final-live-320.png`, `t28-08-final-reduced-375.png`; traza `t28-trace-final-live.json.gz`.
     - Observación (no incumple ningún RF, no se ha tocado): a 320×568, durante ~1 s del destello (6394-7373 ms desde "Next" en Q10, fase `flash` de la llegada), `.final__flash` (fill both, escalado a 1,8) sobresale 1-3 px por debajo de la pantalla y crea 1-3 px de scroll vertical transitorio; en el estado final no hay scroll. No incumple: RNF-1 y RF-76 solo prohíben el scroll horizontal. Aparece desde T26 (panel en el flujo). Mejora opcional anotada en MEMORY.md (limitar el escalado o recortarlo).
   - Revisión del reviewer (17/10/2026): **VEREDICTO: APROBADO** (315/315 tests, `check-db.mjs` 38/38, flujo completo a 375 y 320, movimiento reducido, sin red → con red, RNF-12 con 0 tareas largas). Cierre: spec marcada como implementada y MEMORY.md actualizado (plan §15.11).
+
+## Cambio de requisitos 2026-10-18 (plan §16)
+Estilo de la referencia y ciudad viva. Se trabaja igual que en el cambio anterior:
+- una tarea cada vez, con los tests primero (en rojo), después el código y luego en verde;
+- la validación visual, con el MCP Chrome DevTools a 375×667 y 320×568, en un contexto aislado con supabase.co bloqueado por initScript y el movimiento reducido simulado como en T16/T18;
+- la consola, limpia (salvo el aviso conocido "Skippable").
+
+- [x] **T29. Lógica: rejilla, colocación de los sitios, rótulos, farolas y ola.** RF-69, RF-70, RF-73, RF-112, RF-113, RF-139, RF-140, RF-141, RNF-7
+  - Archivos (plan §16.1):
+    - nuevo `js/lib/city-grid.js`: constantes, `cellBox`, `SITE_CELLS`, `fillerCells`, `areNeighbours`, `readingOrder`, `columnOrder`, `STREETS`, `lampPoints`, `waveDelayFraction` y `fillerBuildings`;
+    - `js/lib/site-labels.js`, rehecho: `SITE_LAYOUT` desde la rejilla y `labelSpill`.
+  - Tests primero: `tests/city-grid.test.js` (nuevo) y `tests/site-labels.test.js` (rehecho), plan §16.9.
+  - Hecho cuando:
+    - `node --test` pasa los tests de lógica nuevos y los que ya había. Los de `markup.test.js` que miran la ciudad anterior se dejan como están hasta T33;
+    - se cumplen RF-139 y RF-141 con el reparto de la propuesta 29;
+    - ningún módulo nuevo usa `document`, `window`, `fetch`, `Date`, `performance` ni `Math.random`.
+  - Hecho (18/10/2026): `node --test` 327/327 en verde.
+    - Archivos: `js/lib/city-grid.js` (nuevo), `js/lib/site-labels.js` (rehecho, cada sitio con `cell`, `icon` y `label`, más `labelSpill`), `tests/city-grid.test.js` (nuevo, 15 tests) y `tests/site-labels.test.js` (rehecho, 14 tests).
+    - **Desviación aprobada por el usuario (opción a)**: rehacer `SITE_LAYOUT` dejaba en rojo 5 tests de la ciudad anterior en `tests/markup.test.js`, así que su eliminación se adelanta de T33 a T29. Son los tests de los 16 rellenos con sombra, las 2 zonas verdes con estanque y árboles, los árboles en manzanas sin sitio, "every block of SITE_LAYOUT is a block of the city map" y los iconos dentro de la caja `icon` absoluta. Se quitan también `SITE_BLOCKS` y la importación de `SITE_LAYOUT` en ese archivo.
+    - Hasta T33, los rótulos se colocan en la rejilla nueva sobre el dibujo de la ciudad anterior (fase intermedia prevista).
+    - Detalles no fijados en el plan:
+      - `fillerBuildings` sigue la demo (2×2 huecos, 8 % vacíos, Park–Miller), pero con 2 huecos vacíos como máximo, para que haya de 2 a 4 edificios por celda; cada edificio lleva su ventana `win`;
+      - `lampPoints()` da 53 farolas (18 + 20 + 15 cruces);
+      - `waveDelayFraction` está limitada a 1;
+      - `readingOrder`/`columnOrder` devuelven una copia ordenada;
+      - la caja `icon` va en coordenadas absolutas (ancho de la celda, y 2-40);
+      - `labelSpill` devuelve `{ left, right }`: Fairground ≈ 9,65 y Nightclub ≈ 6,085.
+
+- [x] **T30. Lógica: progreso, celebración, transiciones 200/350 con "rise" y bucles e intro.** RF-86, RF-103, RF-108, RF-119 a RF-121, RF-123, RF-125 a RF-130, RF-133 a RF-138, RF-143, RF-148, RNF-7
+  - Archivos (plan §16.1):
+    - nuevo `js/lib/progress.js` (`progressView`);
+    - `js/lib/city-view.js`: `celebration`, `toastPlacement` y las constantes de tiempo;
+    - `js/lib/transition.js`: 200/350 y `rise`;
+    - `js/lib/intro-entry.js`: `INTRO_LOOPS`, `flashesPerSecond`, `BOARD_SEQUENCE`, `MARKER_COUNT`, `markerValueAt` y `markerCountPlan`.
+  - Tests primero: `tests/progress.test.js` (nuevo) y las ampliaciones de `city-view`, `transition`, `intro-entry` y `final-view` (plan §16.9).
+  - Hecho cuando:
+    - `node --test` en verde, con `totalMs ≤ 550`, `200 + finalEndMs() ≤ 8000` y ≤ 3 destellos por segundo en los 3 bucles;
+    - ningún módulo usa DOM, red ni reloj.
+  - Hecho (18/10/2026): `node --test` 349/349 en verde (22 tests nuevos).
+    - Archivos: `js/lib/progress.js` (nuevo), `js/lib/city-view.js`, `js/lib/transition.js`, `js/lib/intro-entry.js`; tests: `tests/progress.test.js` (nuevo, 8), `tests/city-view.test.js` (+7), `tests/intro-entry.test.js` (+6), `tests/transition.test.js` (actualizado a 200/350 y `rise`, +1) y `tests/final-view.test.js` (200 + 7200 = 7400).
+    - Detalles no fijados en el plan:
+      - `progressView` calcula el porcentaje como `round(litCount·100/total)` (igual a N·10 con 10 preguntas); sin `answeredIndexes`, rellena los `litCount` primeros; `current` por defecto es null;
+      - `celebration` acepta `names` como 4.º parámetro (por defecto `SITE_NAMES`) y, si hubiera varios sitios nuevos a la vez, usa el primero en el orden de `nextLit`;
+      - `toastPlacement` acepta `cells` (por defecto `SITE_CELLS`) y devuelve "bottom" para un id desconocido;
+      - `BOARD_SEQUENCE`: objetos `{ col, row, column, value }` (col 0-4, row 0-2);
+      - `markerValueAt` es lineal y redondea hacia abajo a múltiplos de 10; `markerCountPlan` devuelve "skip" si `elapsedMs` no es un número finito;
+      - intro → selector también lleva `rise` (regla del plan: `inMs > 0`, sin movimiento reducido y no hacia el final).
+
+- [x] **T31. Tipografías propias: descarga confirmada, licencias, `@font-face` y precarga.** RF-142, RF-145, RNF-5, RNF-13
+  - **Antes de empezar**:
+    - confirmar con el usuario la descarga de los 5 woff2 (Fontsource vía jsDelivr, versión fija con ≥ 2 semanas) y de los 2 OFL (`github.com/google/fonts`), según plan §16.2;
+    - si no hay red o el usuario no confirma, parar.
+  - Archivos:
+    - `assets/fonts/` con los 5 woff2 y los 2 OFL;
+    - `css/survey.css`: `@font-face` con `optional` y `unicode-range`, `--display`, `--body`, y `.plato text { font-family: var(--sans) }`;
+    - `index.html`: precarga de Figtree 400 y 700.
+  - Tests primero: los de fuentes de `tests/markup.test.js` (≤ 5 archivos, ≤ 150 KB, OFL presentes, `font-display: optional`, `url()` relativas, sin `http` de fuentes).
+  - Hecho cuando:
+    - `node --test` en verde;
+    - en el MCP no hay peticiones a dominios externos de fuentes;
+    - con `*.woff2` bloqueado, la intro y el selector se ven con la fuente de reserva, sin scroll, a 320×568 y 375×667;
+    - con las fuentes cargadas, el plató no cambia (comparar capturas);
+    - se anotan las versiones y los KB de cada archivo.
+  - Hecho (18/10/2026): `node --test` 355/355 en verde (6 tests nuevos de fuentes en `markup.test.js` y 1 de MIME en `serve.test.js`).
+    - Origen (descarga autorizada por el usuario): Fontsource **5.3.0** (publicada el 19/07/2026) de las dos familias, `https://cdn.jsdelivr.net/npm/@fontsource/big-shoulders-display@5.3.0/files/big-shoulders-display-latin-{700,800}-normal.woff2` y `https://cdn.jsdelivr.net/npm/@fontsource/figtree@5.3.0/files/figtree-latin-{400,600,700}-normal.woff2`; licencias de `https://raw.githubusercontent.com/google/fonts/main/ofl/{bigshouldersdisplay,figtree}/OFL.txt`.
+    - Tamaños (todos con cabecera `wOF2`): Big Shoulders Display 700 = 14 424 B, 800 = 14 556 B; Figtree 400 = 11 384 B, 600 = 11 544 B, 700 = 11 376 B. Total 63 284 B (61,8 KB ≤ 150 KB). OFL: 4 396 B y 4 388 B.
+    - `unicode-range`: el subconjunto latino de Fontsource 5.3.0 (U+0000-00FF, U+0131, …, U+FFFD).
+    - MCP (375×667 y 320×568): solo peticiones de fuentes a localhost (Figtree 400/700 precargadas y 600 al usarse); sin errores en consola. El plató mantiene `system-ui` con las fuentes cargadas. Con la fuente de reserva forzada (`--body`/`--display` = `var(--sans)`), intro y selector sin scroll (scrollHeight = alto de la vista, sin scroll horizontal).
+    - Desviaciones:
+      - `body` pasa a `var(--body)` ya en T31 (si no, la precarga de Figtree no se usaba). El resto de reglas que fijan `var(--sans)` (p. ej. `.btn`) se cambian en T32/T34;
+      - se actualizan 2 tests de T13 que la spec ya derogó: "no web fonts" (ahora exige `var(--body)` en `body` y sigue prohibiendo `@import`) y "quiz tokens are gone" (sin `--display`, que vuelve según §16.2; `--gold` lo resuelve T32);
+      - `scripts/serve.mjs` sirve `.woff2` como `font/woff2` (antes `application/octet-stream`), igual que GitHub Pages;
+      - el bloqueo real de `*.woff2` (`Network.setBlockedURLs`) no está disponible en el MCP: se simuló forzando la fuente de reserva. Queda por probar a mano: DevTools → Network → bloquear `*.woff2` → recargar a 320×568 y 375×667.
+
+
+- [x] **T32. Estilo de la demo: paleta, botones dorados, opciones hexagonales sin letra, títulos y foco.** RF-17, RF-35, RF-92 a RF-97, RF-144, RNF-4
+  - Archivos (plan §16.3):
+    - `css/survey.css`: paleta, `.btn`, `.btn--secondary`, `:disabled`, opciones con `.option__shape` y `.option__in`, títulos en mayúsculas y foco;
+    - `js/app/screens/question.js`: sin `.option__letter`, `aria-label` = etiqueta y la estructura del hexágono;
+    - fondo de `body`.
+  - Tests primero: `tests/markup.test.js` (sin letra, sin `clip-path` en `.option`, `:focus-visible`, `min-height` ≥ 52, sin degradados ni sombras doradas) y `question-view` sin cambios.
+  - Hecho cuando:
+    - `node --test` en verde;
+    - a 320×568 y 375×667, todas las opciones de las 10 preguntas se ven enteras (≤ 3 líneas, sin recorte en las puntas);
+    - la elegida se rellena de dorado con el icono;
+    - el foco con Tab se ve entero (≥ 3:1) y es distinto de "elegida";
+    - los títulos del selector y del final van en mayúsculas condensadas, y los enunciados en minúsculas normales;
+    - el contraste de textos, bordes y botón desactivado está medido;
+    - no hay confirmación "final answer".
+  - Hecho (18/10/2026): `node --test` 366/366 en verde.
+    - Archivos: `css/survey.css` (paleta de §16.3 con `--seg-off: #5c66a6`, fondo de `body` con `--night-2`, `.btn` dorado, `.btn--secondary`, `:disabled`, opciones con `.option__shape`/`.option__in`, títulos en mayúsculas con `--display`, foco claro), `js/app/screens/question.js` (sin `.option__letter`, `aria-label` = etiqueta, hexágono anidado, `.option__tick`), `index.html` ("Back" pasa a `btn btn--secondary`); `tests/markup.test.js`: el bloque de estilo de T13 (§14.3) se sustituye por los tests de §16.3.
+    - Tests de T13 sustituidos (los derogó el cambio del 18/10 y §16 sustituye a §14.3): "never all capitals", paleta de §14.3, "quiz tokens" (ahora exige `--gold` y prohíbe `--street`, `--block`, `--window` y `--radius`), foco con `--window`, `.btn--primary` en píldora, `.btn--ghost` y opción elegida con borde cálido.
+    - Contraste medido: `--text` sobre `--night` 17,3:1 y sobre `--royal-deep` 16,1:1; `--night` sobre `--gold` 11,1:1; `--muted` 8,0:1; borde dorado 11,1:1; `--seg-off` 3,6:1; "Next" desactivado 3,0:1 (exento; se distingue por opacidad y cursor); `--line` 1,9:1, solo como línea decorativa de "Back" (lo identifica su texto).
+    - MCP (375×667 y 320×568, Supabase bloqueado con initScript, sin errores en consola): las 21 opciones de las 10 preguntas caben en ≤ 3 líneas sin recorte en las puntas, también con la fuente de reserva (3 líneas solo Q7-A y Q8-B a 320), con 60 px de alto mínimo; la elegida se rellena de dorado con el icono; el foco con Tab es un contorno claro de 3 px entero y distinto de "elegida"; título del selector, "Leisure for Society" y "Thank you" en mayúsculas condensadas (en una línea con Big Shoulders a 320), enunciados en minúsculas normales; intro y selector sin scroll a 320×568; sin confirmación "final answer".
+    - Decisiones no fijadas en el plan:
+      - `.btn--primary` se queda en el HTML solo como nombre (el aspecto es de `.btn`), para no tocar los tests de la intro;
+      - foco global (`:focus-visible`) también en `--text`; bordes del campo de texto y de las casillas de país en `--muted` (≥ 3:1; `--line` no llega);
+      - se quita el punto neón de "Question n of 10" (RF-94 ya no admite neón en el estilo de la encuesta); `--neon` y `--red` siguen solo para la ciudad hasta T33, y la ciudad usa `--lit` donde usaba `--window`;
+      - `.final__title` en `--gold`; el brillo de "Give feedback" en la entrada sale de 0 y vuelve a 0 (el botón ya no tiene sombra en reposo);
+      - el test de `var(--sans)` exime a `.site-label` (lo cambia T33).
+    - Nota: el servidor local manda `Cache-Control: no-store`, así que Big Shoulders (sin precarga) casi nunca llega a tiempo para `optional` en local y se ve la fuente de reserva; se comprobó con un `@font-face` temporal con `block`. En GitHub Pages sí se guarda en caché.
+
+- [x] **T33. Ciudad en rejilla: calles, relleno y farolas generados, iconos en celdas, halo y rótulos dentro de la celda.** RF-69 a RF-72, RF-75, RF-76, RF-78, RF-111 a RF-113, RF-133, RF-140, RF-141, RNF-4
+  - Archivos (plan §16.4):
+    - `index.html`: viewBox 400×292, recorte y borde, grupos vacíos, 10 iconos redibujados en coordenadas de celda con `.site__ring`, `.city__halos` y `#glow`; fuera la ciudad anterior;
+    - `js/app/city.js`: `mountCityGrid` y `paintCity` con halo e `instant`;
+    - `js/app/main.js`: monta la rejilla antes de los rótulos;
+    - `css/survey.css`: rejilla, halo, rótulos; fuera sombras, verdes, agua y árboles.
+  - Tests primero:
+    - `tests/city.test.js` ampliado;
+    - en `tests/markup.test.js`, quitar los tests de la ciudad anterior y añadir los de la rejilla (plan §16.9).
+      - Desviación: 5 de esos tests (rellenos con sombra, zonas verdes y estanque, árboles, bloques de `SITE_LAYOUT` e iconos en la caja absoluta) ya se quitaron en T29, por decisión del usuario. En T33 quedan por quitar los demás de la ciudad anterior (sombras `translate(2.5 3)`, `--fx`, `water-ripple`, etc.).
+  - Hecho cuando:
+    - `node --test` en verde;
+    - a 375×667 y 320×568 se ven la rejilla 6×4, los 14 rellenos apagados y los 10 sitios distinguibles, sin nada fuera del borde;
+    - el mapa mide ≤ 40 % del alto (RF-78);
+    - cada respuesta enciende su sitio con halo (≤ 900 ms) y su rótulo dentro de la celda;
+    - con los 10, `getBBox()` no muestra solapes con otro sitio ni salidas del borde, la letra mide ≥ 8 px a 320 y el contraste es ≥ 4.5:1;
+    - en la reanudación, halo y rótulo aparecen sin fundido;
+    - el árbol de accesibilidad solo muestra el `aria-label` de la ciudad.
+  - Hecho (18/10/2026): `node --test` 377/377 en verde (11 tests nuevos y 12 quitados por obsoletos).
+    - Archivos:
+      - `index.html`: `#city` con viewBox 400×292 y los grupos de §16.4 (vacíos los generados), 10 halos y 10 sitios redibujados en su celda, coches movidos y sin la ciudad anterior;
+      - `js/app/city.js`: `mountCityGrid` y `paintCity` con halos e `instant`;
+      - `js/app/main.js`: `mountCityGrid(city)` antes de los rótulos e `instant: shownScreen === null`;
+      - `css/survey.css`: sección de la ciudad rehecha, ola provisional con `--fd`, sin estanque ni `car-y-4` antiguo;
+      - `scripts/serve.mjs`;
+      - tests: `tests/city.test.js` (+7), `tests/markup.test.js` (−12 y +15) y `tests/serve.test.js` (+1).
+    - **Desviación aprobada por el usuario (opción a)**: se adelanta de T37 la parte de coches y agua.
+      - Los 4 coches pasan a las calles de `STREETS`: y = 76, 146 y 216 en sentidos alternos, y x = 200.
+      - Se recalcula `car-y-4` para el borde 292 (192 px al 62,951 %).
+      - Los 2 tests de coches se reescriben con `STREETS` y el borde 400×292.
+      - Se quitan el bucle del estanque y `.water__ripple` de la lista de bucles vivos, con lo que el mínimo de bucles pasa a ≥ 11.
+    - **Cambio aprobado por el usuario**: `scripts/serve.mjs` manda `Cache-Control: public, max-age=31536000` para los `.woff2` (`cacheControlFor`) y `no-store` para lo demás, para que en local se vea Big Shoulders. Va con su test en `tests/serve.test.js`.
+    - **Interpretaciones confirmadas por el usuario**:
+      - el test de ventanas que titilan y farolas en dos grupos pasa a `tests/city.test.js` con DOM falso;
+      - se quitan los tests que §16.9 da por obsoletos: viewBox 400×300, rellenos con `--fx`, mapa 0-400×0-300, recorte 400×300, sombras, caras, verdes y agua, sombra y `.body--top` por sitio, ola con `--fx` y estilo de rótulo de §15.5;
+      - hasta T37, la ola usa `var(--fd, 0)` en lugar de `var(--fx)` (la banda sigue barriendo de izquierda a derecha);
+      - los rótulos van en `--display` 700, dorados, con trazo `--night` (`paint-order: stroke`) sobre el fondo `rgb(6 10 34 / .8)`, en minúsculas normales;
+      - cada sitio tiene `.site__pad`;
+      - cada `<g data-site>` va en `translate(celda)` y el icono en `translate(0 2)`;
+      - se mantienen las clases `.lt`, `.wheel`, `.lt--pink` y `.lt-stroke--pink`.
+    - Detalles no fijados en el plan:
+      - edificios encendidos con un tono cálido por edificio (`--wl`, los 7 de la demo, por turnos) y la ventana `.win` como detalle oscuro del tejado, como en la demo;
+      - `data-twinkle` en 5 de los 14 bloques (i % 3 = 1), con `--tw` de 0 a 2,8 s;
+      - farolas alternas entre `.lamps__a` (27) y `.lamps__b` (26);
+      - el anillo interior de calles va en 6,5 con 388 × 282 y rx 8, como la demo;
+      - `data-instant` se quita en el segundo `requestAnimationFrame`, porque un callback de rAF corre antes de que se pinte su fotograma;
+      - con movimiento reducido, `transition-duration: 0s !important` bajo `data-instant`;
+      - tokens nuevos `--road`, `--pad` y `--pad-on` (de la demo), y `--neon` y `--red` se quedan para la ciudad;
+      - colores de las luces `lt--green`, `lt--pond`, `lt--violet`, `lt--sand` y `lt--white` (`lt--pond` y no `lt--blue`, por el test de tokens antiguos);
+      - test nuevo: en `#city` solo hay `transform="translate(…)"`, para que las cajas que miden los tests sean las reales.
+    - MCP Chrome DevTools, en contextos aislados con `fetch` a supabase.co bloqueado por initScript, con el servidor propio en el puerto 8093; 15 y 7 envíos bloqueados y ninguna petición a supabase.co:
+      - **375×667**:
+        - mapa de 343 × 250,4 (37,5 % del alto);
+        - 14 bloques, 48 edificios, 53 farolas y 9 calles;
+        - sitios apagados distinguibles;
+        - con 9 sitios, 9 halos y 9 rótulos dentro de su celda;
+        - final con los 10: `getBBox` sin solapes entre rótulos, con otro sitio ni fuera del mapa;
+        - letra de 10,3 px en el final; Big Shoulders cargada.
+      - **320×568**:
+        - mapa de 288 × 210,2 (37 %);
+        - el halo pasa de 0 a 0,99 en unos 820 ms (transición de 900 ms);
+        - recarga en la Q5: `data-instant` en los primeros fotogramas, halos y rótulos a opacidad 1 desde el primer fotograma pintado y 0 `transitionrun`;
+        - final con los 10, sin solapes y con letra de 8,28 px (preguntas) y 8,74 px (final).
+      - Sin scroll horizontal. Consola: solo el aviso conocido "Skippable".
+      - Capturas en el scratchpad: `t33-01-q1-375.png`, `t33-02-q10-9lit-375.png`, `t33-03-final-375.png`, `t33-04-q5-resume-320.png` y `t33-05-final-320.png`.
+
+- [x] **T34. Cabecera de progreso, barra de preguntas, anillo y aviso "Lit up".** RF-125 a RF-138, RF-148, RF-77, RNF-4
+  - Archivos (plan §16.5):
+    - `index.html`: `.hud`, `.city-box`, `.city__toast` y `.segs` en `#city-wrap`;
+    - nuevo `js/app/hud.js`;
+    - `js/app/main.js`: `prevLit`, `paintHud` y `celebrate` en `update()`;
+    - `css/survey.css`.
+  - Tests primero: `tests/hud.test.js` (nuevo, DOM falso) y los de cabecera, aviso y barra de `tests/markup.test.js`.
+  - Hecho cuando:
+    - `node --test` en verde;
+    - con el MCP, cada "Next" actualiza el porcentaje, "N of 10 places" y los segmentos en el mismo tick;
+    - "Back" a una respondida la marca como actual sin bajar el porcentaje;
+    - el anillo dura ≤ 1,2 s y el aviso 1,5 s (abajo, o arriba con Theatre y Food market) sin tapar su sitio ni los controles;
+    - un cambio de respuesta, la reanudación y la reapertura no muestran anillo ni aviso, y la Q10 tampoco;
+    - el cálculo de RF-132 está medido con `getBoundingClientRect()` a 375×667 (≤ 333 px), y el porcentaje cabe en una línea a 320 px;
+    - con movimiento reducido no hay anillo, y aviso y halo se funden en ≤ 200 ms.
+  - Hecho (18/10/2026): `node --test` 391/391 en verde (6 tests nuevos en `tests/hud.test.js` y 8 en `tests/markup.test.js`).
+    - Archivos:
+      - `index.html`: `.hud` (marca, `.hud__pct` y `.hud__count`), `.city-box` con `#city` y `.city__toast`, y `.segs` en `#city-wrap`, todo `aria-hidden` salvo el SVG;
+      - `js/app/hud.js` (nuevo): `mountHud`, `paintHud` y `celebrate`;
+      - `js/app/main.js`: `prevLit` y `paintProgress`, llamados con cada `paintCity`, en `render()` y en `update()` (mismo tick), y `mountHud` al arrancar;
+      - `css/survey.css`: cabecera, barra, aviso, `@keyframes ring` (1,1 s a 1,22) y aviso sin movimiento con movimiento reducido;
+      - tests: `tests/hud.test.js` (nuevo) y `tests/markup.test.js`.
+    - **Desviaciones aprobadas por el usuario (opción a)**:
+      - la regla del 40 % pasa de `.app[data-screen="question"] .city-wrap` a `.city-box`. El test "on questions the city is at most 40 %…" solo cambia de selector y mantiene las comprobaciones. `.city-wrap` pasa a ser una columna con `gap: 8px`;
+      - se adelanta de T37 lo mínimo para que el final no se rompa: en el final, los hijos de `#city-wrap` con `align-self: stretch` y `.city-box { flex: 1; min-height: 0; display: flex; justify-content: center }`.
+    - Otros cambios en tests: el test de mayúsculas de RF-95 admite `.hud__brand` (además de `.brand`).
+    - Decisiones de `hud.js` confirmadas por el usuario:
+      - los temporizadores se pueden inyectar;
+      - un sitio nuevo sin aviso (Q10 hacia el final) oculta el aviso que siga visible de la Q9;
+      - `prevLit = null` marca la primera pintura;
+      - `current = survey.current - 1`, y null en el final.
+    - MCP Chrome DevTools, en contextos aislados con `fetch` a supabase.co bloqueado por initScript y el servidor propio en el puerto 8094. Ninguna petición a supabase.co.
+      - **RF-132 a 375×667**, con `getBoundingClientRect()`:
+        - cabecera de 48,6 px (porcentaje 32,4 + texto 16,2), separación de 8, mapa de 343 × 250,4 (37,5 %), separación de 8 y barra de 6;
+        - en total, `#city-wrap` mide 321 px ≤ 333 y termina en y = 333.
+      - **A 320×568**: 48,6 + 8 + 210,2 + 8 + 6 = 280,8 px. El porcentaje ("90%", 75,5 px de ancho) y "9 of 10 places" caben en una línea cada uno, sin scroll horizontal.
+      - **Q1 a Q9**, en las dos medidas:
+        - justo tras el clic en "Next", ya han cambiado el porcentaje, "N of 10 places", los segmentos y `is-new`;
+        - anillo `ring` de 1100 ms, con `is-new` retirado a unos 1218 ms;
+        - aviso oculto a unos 1533 ms;
+        - aviso arriba con Theatre y Food market y abajo con el resto, siempre dentro del mapa, sin tapar su sitio ni su rótulo;
+        - un "Next" 620 ms después del anterior deja un solo aviso, el nuevo.
+      - **Sin anillo ni aviso**:
+        - "Back" desde la Q10: 90 % y Q9 rellena y actual;
+        - cambio de respuesta en la Q9 y "Next";
+        - recarga en la Q10 (`MutationObserver`: ninguna clase `is-new` ni `is-shown`);
+        - Q10 → final: "100%", "10 of 10 places" y 10 segmentos sin actual.
+      - Consola: solo el aviso conocido "Skippable".
+      - Capturas en el scratchpad: `t34-01-q10-375.png`, `t34-02-final-375.png`, `t34-03-q10-toast-320.png` y `t34-04-toast-top-320.png` (esta con el aviso forzado por script para verlo).
+      - **Movimiento reducido**: el MCP no lo emula. Lo cubren los tests de CSS (regla global y aviso fijo en `translate(-50%, 0)`).
+        - Queda por probar a mano: DevTools → Rendering → `prefers-reduced-motion: reduce` → responder una pregunta. No debe haber anillo, y el aviso y el halo deben fundirse en 200 ms sin subir.
+
+- [x] **T35. Transiciones de 200 + 350 ms con "rise", vuelta arriba y foco sin scroll.** RF-103, RF-104, RF-106, RF-107, RF-108, RF-131, RF-143, RF-146, RF-147, RNF-2, RNF-4
+  - Archivos (plan §16.6): `js/app/fade.js` (`rise`) y `js/app/main.js` (`plan.rise`, `scrollTo(0, 0)` y `focus({ preventScroll: true })`).
+  - Tests primero: en `tests/markup.test.js`, que `fade.js` solo anime `opacity`/`transform` con `translateY(10px)` como máximo y que `main.js` use `preventScroll`.
+  - Hecho cuando:
+    - `node --test` en verde;
+    - con `getAnimations()`, la salida dura 200 ms y la entrada 350 ms (±20);
+    - entre preguntas, la cabecera, la ciudad y la barra no se mueven;
+    - del selector a la Q1 entran juntas con "rise", y de la Q10 al final no hay "rise";
+    - un doble toque en "Next" avanza 1 y crea un solo payload;
+    - en la Q7 o la Q8, con scroll forzado a 320×568, al pulsar "Next" la página vuelve arriba y se ven el halo, el anillo y el aviso, y el foco está en el título;
+    - con movimiento reducido hay un solo fundido de ≤ 200 ms, sin `transform`.
+  - Hecho (18/10/2026): `node --test` 394/394 en verde (3 tests nuevos en `tests/markup.test.js`).
+    - Archivos: `js/app/fade.js` (`fadeIn(elements, ms, { rise = false } = {})` con `translateY(10px)` → `none`; `fadeOut` solo opacidad), `js/app/main.js` (`fadeIn(..., plan.inMs, { rise: plan.rise })`; en `render()`, `window.scrollTo(0, 0)` y después `focus({ preventScroll: true })` del título) y `tests/markup.test.js`.
+    - El test de T23 "fade.js ... only opacity" pasa a llamarse "fade.js fades with the Web Animations API and cancels when done" (sigue exigiendo opacidad en los fotogramas simples); el límite de `transform` lo cubre el test nuevo.
+    - MCP (servidor propio en 8093, `fetch` a supabase.co bloqueado, 0 peticiones a supabase.co): salida 200 ms y entrada 350 ms; intro → selector y selector → Q1 con "rise" (sección y `#city-wrap` juntos); entre preguntas solo `#screen-question` (`#city-wrap` sin animaciones y en la misma posición); triple toque en "Next" avanza 1 y el contador `seq` sube 1; Q7 → Q8 a 320×568 con scroll forzado (365 px): `scrollY` = 0 al empezar la entrada, foco en el título, aviso "Lit up: Town square" visible y anillo animándose; Q10 → final sin entrada ni "rise"; movimiento reducido (`matchMedia` simulado): solo entradas de 200 ms de opacidad. Consola: solo el aviso conocido "Session History Item Has Been Marked Skippable".
+    - Nota: de la Q10 al final `#city-wrap` también se funde en la salida (200 ms), porque `cityMode` cambia de "question" a "final"; ya era así antes de T35 y lo revisa T37/T38.
+
+- [x] **T36. Intro: bombillas en secuencia, recorrido del tablero, marcadores, focos, suelo y cuenta.** RF-8, RF-85, RF-86, RF-87, RF-119 a RF-124, RNF-2
+  - Archivos (plan §16.8):
+    - `index.html`: `.plato__cell-glow` en las 13 casillas con valor, `.plato__score-glow` y el `<g>` de giro de los focos;
+    - `css/survey.css`: `plato-chase`, `plato-cell`, `plato-screen`, el giro de los focos y el suelo;
+    - `js/app/screens/intro.js`: la cuenta con `markerCountPlan` y `markerValueAt`, que para en `hide()`.
+  - Tests primero: en `tests/markup.test.js`, que el CSS coincida con `INTRO_LOOPS`, 13 resplandores sin las 2 vacías, textos del tablero y marcadores intactos en el HTML (300/500/200), bucles ≥ 1 s y "reduced motion stops".
+  - Hecho cuando:
+    - `node --test` en verde;
+    - con el MCP, a 375×667 y 320×568, los marcadores cuentan de 0 a 300/500/200 antes de 2 s y luego quedan fijos;
+    - los bucles nuevos están `running` sin scroll;
+    - "Give feedback" a los 1200 ms (con la cuenta a medias) lleva al selector al momento;
+    - con movimiento reducido, el plató es estático con 300/500/200.
+  - Hecho (18/10/2026): `node --test` 408/408 en verde (9 tests nuevos en `tests/markup.test.js` y 5 en `tests/intro.test.js`, nuevo, con DOM falso).
+    - Archivos: `index.html` (13 `.plato__cell-glow` entre cada casilla con valor y su número, con `opacity="0"` y `style="--i:N"`; 3 `.plato__score-glow` entre la pantalla y el marcador; cada `.plato__spot` dentro de un `<g class="plato__swing" style="transform-origin: <cx>px 6px">`; la elipse del suelo con `.plato__floor-light`), `css/survey.css` (`plato-chase` 1,6 s con retrasos 0/0,4/0,8/1,2 s en sentido horario y opacidad 1 → 0,55; `plato-cell` 5,2 s lineal con `calc(var(--i) * 400ms)`, pico 0,35 al 3,8 % y apagado al 7,6 %; `plato-screen` 1,5 s `alternate` 0 → 0,22 con retrasos 0/0,5/1 s; `plato-swing` ±6° 4 s `alternate` con `transform-box: view-box`; `plato-floor` ±4 % 7 s `alternate`; se retira `plato-glow-bulb`), `js/app/screens/intro.js` (`mountIntro` devuelve `{ show, hide }`; reloj y `requestAnimationFrame` inyectables), `js/app/main.js` (`introScreen.show()`/`hide()` en `render()`), `tests/markup.test.js` y `tests/intro.test.js`.
+    - Decisión no cubierta por el plan: con movimiento reducido no hay animación de entrada del grupo `people` (la regla global pone `animation: none`), así que `elapsed` es `NaN` y `markerCountPlan` da "skip"; `intro.js` no consulta `matchMedia` (el test de T15 sigue prohibiendo `reducedMotion` en `intro.js`). El desfase del brillo de los focos pasa a `.plato__swing:nth-of-type(2n) .plato__spot`, porque cada foco queda solo en su grupo.
+    - MCP (servidor propio en 8136, `fetch` a supabase.co bloqueado): a 375×667 los marcadores pasan a 0/0/0 al cargar, cuentan desde ~1080 ms y quedan en 300/500/200 a los 1867 ms (a 320×568, 1848 ms) y fijos hasta los 11 s; bombillas, 13 resplandores, 3 marcadores, 4 focos y suelo en `running`; sin scroll (máx. `scrollWidth`/`scrollHeight` = 320/568 durante 11 s a 320×568). "Give feedback" a los 1204 ms (marcadores en 60/110/40): vuelven a 300/500/200 en el mismo clic y el selector se ve a los 209 ms (la salida de 200 ms de RF-103). Movimiento reducido (regla `animation: none !important` inyectada antes de los módulos): 0 animaciones, sin cuenta, resplandores a opacidad 0 y 300/500/200. RNF-12: traza de 16,5 s a 375 px sin limitación de CPU, 0 tareas de más de 50 ms (máx. 29 ms en la carga y 5,6 ms con los bucles). Consola: solo el aviso conocido "Session History Item Has Been Marked Skippable".
+
+- [x] **T37. Final en la rejilla: ola desde el centro, farolas, coches en las calles nuevas, bucles vivos y disposición con cabecera y barra.** RF-53, RF-54, RF-56, RF-73, RF-74, RF-79, RF-114 a RF-118, RF-130, RF-140, RNF-2
+  - Archivos (plan §16.7):
+    - `index.html`: `.city__wave` como círculo con `#wave-ring` y 4 `.car` sobre `STREETS`;
+    - `css/survey.css`: `--fd` en lugar de `--fx`, `city-on` para edificios, ventanas, farolas y calles, bucles sin agua, y `#city-wrap` del final con la cabecera y la barra;
+    - `js/app/screens/final.js`, si hace falta.
+  - Desviación (decisión del usuario en T34, opción a): ya se hizo en T34 lo mínimo para que el final no se rompa (`#city-wrap` en columna, hijos con `align-self: stretch` y `.city-box { flex: 1; min-height: 0 }`). Aquí queda el resto de la disposición: hoy, a 375×667, el mapa queda centrado en una caja de 403 px con huecos arriba y abajo, y la cabecera y la barra van a 8 px del borde de la pantalla.
+  - Desviación (decisión del usuario en T33, opción a): los coches ya van sobre `STREETS` con sus tests reescritos, y el agua y su bucle ya no están (mínimo de bucles ≥ 11). Aquí quedan la ola radial, `city-on` con `--fd` (hoy provisional sobre la banda que barre) y la disposición del final.
+  - Tests primero: en `tests/markup.test.js`, ola con `scale` y `opacity`, bucles bajo `[data-final-live]` + `[data-all-lit]`, y la disposición del final sin `fixed`.
+  - Hecho cuando:
+    - `node --test` en verde;
+    - con el MCP, la ola sale del centro y enciende relleno, farolas y calles por distancia;
+    - `done` llega en ≤ 8 s desde "Next" en la Q10;
+    - la cabecera muestra "100%" con 10 segmentos rellenos y sin actual;
+    - el mapa entero queda centrado, a ≥ 8 px de los bordes, sin solaparse con la cabecera, la barra, las banderas ni los textos, a 375×667, 320×568 y 430×932;
+    - los coches, ventanas, farolas y 3 sitios siguen en bucle a los 20 s;
+    - la recarga terminada va directa al estado vivo;
+    - con movimiento reducido, el final es estático.
+  - Hecho (18/10/2026): `node --test` 413/413 en verde (5 tests nuevos en `tests/markup.test.js`).
+    - Archivos:
+      - `index.html`: `radialGradient#wave-ring` (transparente hasta 0,8, banda clara de 0,55 en 0,93 y transparente en 1) y `.city__wave` como `<circle cx="200" cy="146" r="266">`; fuera el `linearGradient#wave` y el `rect` que barría;
+      - `css/survey.css`: `.city__wave` con `transform-box: fill-box; transform-origin: center`; `@keyframes final-wave` de `scale(0)` a `scale(1)` con opacidad 1 → 0 desde el 85 %, lineal; `city-on` y compañía con `var(--fd)` (sin el `0` provisional); disposición del final rehecha (ver abajo);
+      - `js/app/screens/final.js`: solo el comentario de cabecera (`--fx` → `--fd`, ola en anillo);
+      - `tests/markup.test.js`: anillo centrado y sincronizado con `--fd`, ola solo con `scale`/`opacity`, encendido por `--fd` de `.win`, `.lamp`, `.filler__b` y `.street`, bucles colgados de `[data-final-live]` + `[data-all-lit]` y nunca de `play`/`done`, y disposición del final.
+    - Sincronía de la ola: `r = 266` para que la banda clara (0,93 × 266 = 247,4) llegue a las esquinas (247,6) justo al acabar la fase de 1,4 s, igual que `--fd` = 1. Medido: a 300/700/1100 ms de la ola, banda en 51/121/193 y farolas encendidas (opacidad > 0,5) hasta 35/105/175 de distancia, con las apagadas desde 64/119 (el retraso de ~150 ms es la mitad del fundido `city-on` de 300 ms).
+    - **Decisión no fijada en el plan (disposición, RF-79/RF-130)**: con `.city-box { flex: 1 }` (§16.7) la caja medía 403 px de alto para un mapa de 262 y dejaba huecos entre la cabecera, el mapa y la barra. Ahora `#city-wrap` del final es `container-type: size`, y sus 3 hijos (cabecera, caja y barra) van con `flex: none` y un mismo ancho `min(100cqw, (100cqh - 74px) * 400 / 292)` (74 = cabecera de 52 como máximo + 8 + 8 + barra de 6); la caja lleva `aspect-ratio: 400 / 292`, así que mide justo lo que el mapa. El grupo queda junto y centrado en vertical y horizontal; la cabecera y la barra se alinean con los bordes del mapa (a 8 px de la pantalla cuando el mapa usa todo el ancho). Se quita la regla de T34 `.city-wrap > * { align-self: stretch }` y `.city-box` deja `flex: 1`.
+    - **Q10 → final y el fundido de `#city-wrap` (pendiente de T35)**: se mantiene. No choca con RF-143: la ciudad se funde en la salida junto con la pregunta (200 ms, `cityFades` porque cambia el modo de la ciudad, plan §15.3), y el final aparece sin entrada ni "rise", con el mapa ya en su tamaño (sin animar el cambio), y su llegada es la ola (RF-53). Alternativa, si se prefiere: no fundir la ciudad hacia el final (`cityFades` falso cuando `next` es el final), que cambiaría `transition.js` y su test.
+    - MCP Chrome DevTools, contexto aislado, servidor propio en 8137 y `fetch` a supabase.co bloqueado por initScript (ninguna petición a supabase.co en la red):
+      - **375×667**: Q10 → `done` en 7434, 7461 y 7455 ms (≤ 8000); `#city-wrap` con un fundido de salida de 200 ms; cabecera "100%", "10 of 10 places", 10 segmentos rellenos y 0 actuales; cabecera de 359×48,6 en y 78,7, mapa 359×262,1 (y 135,3), barra en y 405,4, panel desde y 490,1; sin solapes ni scroll (375×667).
+      - **320×568** (recarga terminada): cabecera 304×48,6 en y 51,2, mapa 304×221,9 (≥ 288×210,2 de las preguntas), barra en y 337,7, panel desde y 394,9; sin scroll. Sin animaciones de llegada (`animationstart` sin `final-wave`, `city-on` ni confeti), `data-final="done"` y los 9 bucles en marcha.
+      - **430×932**: mapa 414×302,2 centrado (cabecera en y 189,1, barra en 555,9, panel desde 751,1), sin scroll.
+      - A los 37 s de la recarga, `city-twinkle` (5), `city-lamps` (2), `site-wheel`, `site-neon` (7), `site-flood` (6) y los 4 coches siguen `running` con iteraciones infinitas.
+      - Movimiento reducido (`matchMedia` simulado y regla `animation: none !important` inyectada), 320×568: Q10 → `done` sin animaciones, ciudad entera encendida, farolas a opacidad 1, ola en `display: none` y la misma disposición.
+      - RNF-12: traza de unos 10,7 s a 375 px sin limitación de CPU durante Q10 → final y los bucles: 0 tareas de más de 50 ms (máx. 15,2 ms); `PerformanceObserver` de `longtask`: ninguna.
+      - Consola: sin mensajes.
+      - Capturas en el scratchpad: `t37-01-final-375.png`, `t37-02-final-reload-320.png` y `t37-03-wave-320.png` (ola en pausa a ~750 ms).
+  - **Corrección tras la validación (18/10/2026, reviewer: CAMBIOS NECESARIOS)**: las farolas no se veían durante las preguntas (`.lamp` a opacidad 0), contra RF-140 ("apagadas", no ocultas) y el Anexo C. Ahora `mountCityGrid` dibuja en `.city__lamps` primero un `<g class="lamps__off">` con un `.lamp-off` (r 1,4, `fill: #1c2670`, el tono apagado de la demo, sin animación) en cada punto de `lampPoints()`, y encima `.lamps__a`/`.lamps__b` con las `.lamp` encendidas de antes, que siguen a opacidad 0 hasta `#city[data-all-lit]` y entran con la ola (`city-on`, solo opacidad). Así no se anima `fill` (RNF-12) y el bucle `city-lamps`, la recarga terminada y el movimiento reducido no cambian.
+    - **Decisión no fijada en el plan**: capa apagada aparte en lugar de animar `fill` de `.lamp` (como `city-building-on`), para animar solo opacidad.
+    - Tests: `tests/city.test.js` (nuevo: farola apagada en cada punto, primera en el grupo; `city__lamps` con 3 hijos) y `tests/markup.test.js` (nuevo: `.lamp-off` visible con `#1c2670`, nunca oculta ni animada; `.lamp` con `fill: var(--lit)` y `transition: opacity`). `node --test` 416/416.
+    - MCP, contexto aislado, servidor propio en 8137 y `fetch` a supabase.co bloqueado: en Q1 a 375×667 y 320×568, 53 `.lamp-off` visibles (opacidad 1, `rgb(28, 38, 112)`) y `.lamp` a 0, sin scroll horizontal; ola a 375×667: la farola del centro llega a 1 a ~500 ms y la más lejana (`--fd` 0,705) a ~1500 ms, con la capa apagada siempre a 1; `done` a ~7,5 s; recarga terminada: `.lamp` a 1 sin animaciones propias y `city-lamps` en marcha en `.lamps__a/b`. Consola: solo el aviso conocido "Session History Item Has Been Marked Skippable".
+
+- [x] **T38. Validación completa del cambio.** Todos los RF y RNF del cambio (plan §16), RNF-1, RNF-5, RNF-9, RNF-12
+  - Archivos: ninguno, salvo las correcciones que salgan.
+  - Hecho cuando:
+    - `node --test` en verde;
+    - flujo completo a 375×667 y 320×568: intro → país → 10 preguntas (con Back, atrás del sistema, doble toque, cambio de respuesta, AO, AP y una pregunta con scroll) → final;
+      - también con movimiento reducido, sin red y con las fuentes bloqueadas;
+      - sin scroll horizontal y con la consola limpia;
+    - RNF-12 medido como en plan §16.10: 0 tareas > 50 ms;
+    - "Give feedback" pulsable en < 3 s con Fast 4G, sin caché y con las fuentes;
+    - recarga a mitad (sitios en sus celdas nuevas) y recarga terminada;
+    - revisión RF por RF del cambio con VEREDICTO: APROBADO.
+  - La actualización de MEMORY.md y AGENTS.md (plan §16.12) y el paso de la spec a "implementada" quedan para el cierre, después del APROBADO.
+  - Hecho (18/10/2026): `node --test` 414/414 en verde (1 test nuevo y 2 ajustados en `tests/markup.test.js`).
+    - Archivos:
+      - `tests/markup.test.js`: el test del panel del final (T26, línea ~999) tenía un byte 0x08 en lugar de `\b` en `/\b(bottom|left|right|inset)\s*:/`, así que nunca podía fallar; corregido y en verde. Test nuevo de RF-95 (texto literal para el lector) y el de "Thank you" de T18 adaptado;
+      - `index.html`: `aria-label` con el texto literal en los `h1` "Where are you from?" y "Leisure for Society", y "Thank you" como `<span aria-hidden="true">` visible más una copia `.visually-hidden`;
+      - `css/survey.css`: `.visually-hidden { text-transform: none }` y el comentario de `.final__title` corregido (en una línea con Big Shoulders; con la fuente de reserva puede ocupar 2).
+    - **Decisión del usuario (opción b)**: Chrome pasa al árbol de accesibilidad el texto ya en mayúsculas (`text-transform`), y RF-95 pide que el lector lea el texto tal cual. Tras el cambio, el snapshot muestra `heading "Where are you from?"`, `heading "Leisure for Society"`, `StaticText "Thank you"` y las regiones con esos nombres. El aspecto no cambia: mismas cajas a 320×568 (título 461-485, "Thank you" 489-517, panel 395-552) y a 375×667 ("Thank you" 588-616), en mayúsculas, y la llegada del final sigue terminando en `done` (7536 ms).
+    - MCP Chrome DevTools, servidor propio en 8138 y `fetch` a supabase.co bloqueado por initScript (ninguna petición a supabase.co):
+      - **375×667** (Netherlands) y **320×568** (Other): flujo completo con Back, atrás del sistema, cuádruple toque en "Next" (avanza 1, `seq` +1), cambio de respuesta (sin anillo, aviso ni subida del porcentaje), AO con solo espacios ("Next" desactivado) y pegado de 300 (contador 0), AP vacía, y Q7 con scroll forzado (vuelve a 0, foco en el título, anillo y aviso a la vista). Transiciones de 200/350 con "rise"; del selector a la Q1 entran juntos la sección y `#city-wrap`. Q10 → final sin anillo ni aviso, `done` en 7,4-7,6 s; sin solapes ni scroll horizontal. Recarga a mitad (Q7, 320): sitios en sus celdas de `SITE_CELLS`, halos a 1 desde el principio, 0 `transitionrun`, sin anillo ni aviso. Recarga terminada: directa a `done`, sin ola ni confeti.
+      - Movimiento reducido (simulado: `matchMedia` falseado y la hoja real con el bloque `reduce` aplicado y `no-preference` anulado): intro sin animaciones y con 300/500/200; solo fundidos de opacidad de 200 ms sin `transform`; sin anillo; final estático.
+      - Sin red (emulación "Offline" del MCP, a 500 px porque emular el móvil recarga la página): flujo completo, aviso offline en preguntas y final, estado `completed` con `p_seq` 11 en la cola; al volver la red se reintenta al momento. Consola: solo `ERR_INTERNET_DISCONNECTED`.
+      - Fuentes bloqueadas (simulado con un 404 real de los 5 woff2 y de las precargas): intro y selector sin scroll a 320 y 375, RF-132 = 321 px a 375, opciones ≤ 3 líneas, 10 rótulos sin solapes a 8,74 px, y "Leisure for Society" en 2 líneas sin solapes.
+      - Fast 4G en un contexto nuevo (sin caché): primer pintado a 540 ms, "Give feedback" pulsable a 1439 ms.
+      - RNF-12 (375 px, sin limitar la CPU): trazas de la intro (entrada + ~11 s de bucles) y del flujo (9 encendidos, ola y 10 s del final vivo) con 0 tareas > 50 ms (máx. 31,5 y 19,9 ms); `longtask`: ninguna.
+      - Consola: solo el aviso conocido "Skippable" y los errores de red esperados.
+    - Puntos revisados: el panel del final aparece con el giro de las banderas a propósito (RF-53: los textos siguen saliendo tras el destello); el fundido de salida de 200 ms de `#city-wrap` de la Q10 al final es compatible con RF-143 (sin entrada ni "rise" y el mapa ya en su tamaño).
+    - Queda por probar a mano: DevTools → Network → bloquear `*.woff2`; Rendering → `prefers-reduced-motion: reduce`; Network → Disable cache + Fast 4G; y, con una fila de prueba que luego se borra, que tras volver la red queda una sola fila en la base de datos.
+  - Revisión del reviewer (18/10/2026): **VEREDICTO: APROBADO** tras la corrección de RF-140 (farolas apagadas visibles en `.lamps__off`), `node --test` 416/416. Cierre: spec marcada como implementada, MEMORY.md y AGENTS.md actualizados (plan §16.12).

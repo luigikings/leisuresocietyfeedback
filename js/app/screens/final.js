@@ -1,6 +1,6 @@
-// Final screen (RF-53 to RF-56, RF-73, RF-74, RF-77, RF-79): the whole bounded map grows, centred, and the
-// light wave crosses it, lighting the filler buildings, windows, lamps and streets as it passes (each one delayed
-// by its --fx position); then cars drive along the avenues, confetti falls, the flags (no "Other") spin and join
+// Final screen (RF-53 to RF-56, RF-73, RF-74, RF-77, RF-79): the whole bounded map shows, centred between the
+// progress header and the question bar, and the light wave grows from its centre as a ring, lighting the filler
+// buildings, windows, lamps and streets as it passes (each one delayed by its --fd, the distance to the centre); then cars drive along the avenues, confetti falls, the flags (no "Other") spin and join
 // with a flash, and "Leisure for Society" + "Thank you" appear on a translucent panel under the map. The timeline
 // and positions come from js/lib/final-view.js; the arrival animations are CSS and only run while the root has
 // data-final="play".

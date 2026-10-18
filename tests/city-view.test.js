@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { SITE_IDS, SITE_NAMES } from "../js/lib/sites.js";
-import { cityView, holdFullLight } from "../js/lib/city-view.js";
+import {
+  cityView, holdFullLight, celebration, toastPlacement, TOAST_MS, RING_MS, HALO_FADE_MS,
+} from "../js/lib/city-view.js";
+import { SITE_CELLS } from "../js/lib/city-grid.js";
 
 test("SITE_NAMES has an English name for each SITE_ID and nothing else (RF-75)", () => {
   assert.deepEqual(Object.keys(SITE_NAMES).sort(), [...SITE_IDS].sort());
@@ -72,4 +75,56 @@ test("holdFullLight keeps lit and label, turns allLit off and does not mutate it
 test("holdFullLight on a partly lit city changes nothing but the object identity", () => {
   const view = cityView(["park"]);
   assert.deepEqual(holdFullLight(view), view);
+});
+
+test("celebration: a newly lit site gets the ring and the toast (RF-134, RF-135)", () => {
+  assert.deepEqual(celebration(["park"], ["park", "cinema"], { firstPaint: false, toFinal: false }),
+    { siteId: "cinema", ring: true, toast: "Lit up: Cinema" });
+  assert.deepEqual(celebration([], ["park"]), { siteId: "park", ring: true, toast: "Lit up: Park" });
+  for (const id of SITE_IDS) {
+    assert.equal(celebration([], [id]).toast, `Lit up: ${SITE_NAMES[id]}`);
+  }
+});
+
+test("celebration: already lit sites (changed answer, Back) give nothing (RF-138)", () => {
+  const none = { siteId: null, ring: false, toast: null };
+  assert.deepEqual(celebration(["park", "cinema"], ["park", "cinema"]), none);
+  assert.deepEqual(celebration(["park", "cinema"], ["cinema", "park"]), none);
+  assert.deepEqual(celebration(["park", "cinema"], ["park"]), none);
+  assert.deepEqual(celebration([], []), none);
+});
+
+test("celebration: the first paint (resume, reopening) gives nothing (RF-138)", () => {
+  assert.deepEqual(celebration([], ["park", "museum"], { firstPaint: true }), { siteId: null, ring: false, toast: null });
+  assert.deepEqual(celebration([], [...SITE_IDS], { firstPaint: true, toFinal: true }), { siteId: null, ring: false, toast: null });
+});
+
+test("celebration: Next on Q10 lights the site without ring or toast (RF-148)", () => {
+  const before = SITE_IDS.slice(0, 9);
+  assert.deepEqual(celebration(before, [...SITE_IDS], { toFinal: true }), { siteId: "stadium", ring: false, toast: null });
+  assert.deepEqual(celebration([...SITE_IDS], [...SITE_IDS], { toFinal: true }), { siteId: null, ring: false, toast: null });
+});
+
+test("celebration does not mutate its inputs", () => {
+  const prev = Object.freeze(["park"]);
+  const next = Object.freeze(["park", "museum"]);
+  const opts = Object.freeze({ firstPaint: false, toFinal: false });
+  assert.equal(celebration(prev, next, opts).siteId, "museum");
+  assert.deepEqual(prev, ["park"]);
+  assert.deepEqual(next, ["park", "museum"]);
+});
+
+test("toastPlacement: top for sites in the bottom row, bottom for the rest (RF-137)", () => {
+  assert.equal(toastPlacement("theatre"), "top");
+  assert.equal(toastPlacement("food-market"), "top");
+  for (const id of SITE_IDS) {
+    assert.equal(toastPlacement(id), SITE_CELLS[id][1] === 3 ? "top" : "bottom", id);
+  }
+  assert.equal(toastPlacement("cinema"), "bottom");
+});
+
+test("celebration times fit RF-133 to RF-135", () => {
+  assert.equal(TOAST_MS, 1500);
+  assert.ok(RING_MS <= 1200);
+  assert.ok(HALO_FADE_MS <= 900);
 });

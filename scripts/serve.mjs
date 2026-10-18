@@ -14,12 +14,20 @@ const MIME_TYPES = {
   ".json": "application/json; charset=utf-8",
   ".png": "image/png",
   ".ico": "image/x-icon",
+  ".woff2": "font/woff2",
   ".txt": "text/plain; charset=utf-8",
 };
 
 export function contentTypeFor(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   return MIME_TYPES[ext] ?? "application/octet-stream";
+}
+
+// Fonts never change under the same name, so they may be cached (a year): with no-store, a font-display: optional
+// font almost never arrives in time locally and the fallback is shown (T33, user decision). Everything else stays
+// no-store so a reload always shows the last edit.
+export function cacheControlFor(filePath) {
+  return path.extname(filePath).toLowerCase() === ".woff2" ? "public, max-age=31536000" : "no-store";
 }
 
 // Returns the absolute file path for a request URL, or null if it is unsafe.
@@ -56,7 +64,7 @@ function startServer(root, port) {
       const info = await stat(filePath);
       if (!info.isFile()) throw new Error("not a file");
       const body = await readFile(filePath);
-      res.writeHead(200, { "Content-Type": contentTypeFor(filePath), "Cache-Control": "no-store" });
+      res.writeHead(200, { "Content-Type": contentTypeFor(filePath), "Cache-Control": cacheControlFor(filePath) });
       res.end(body);
     } catch {
       res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });

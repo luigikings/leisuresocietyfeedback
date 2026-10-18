@@ -124,5 +124,7 @@ test("liveDelays: reopening a finished survey starts the loops at once (RF-56)",
 });
 
 test("the fade-out before the final plus the arrival still end within 8 s of Next (RF-74)", () => {
+  assert.equal(TRANSITION_OUT_MS, 200);
+  assert.equal(TRANSITION_OUT_MS + finalEndMs(), 7400);
   assert.ok(TRANSITION_OUT_MS + finalEndMs() <= FINAL_MAX_MS);
 });

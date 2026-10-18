@@ -2,42 +2,43 @@
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no aporte.
 
 ## Estado actual
-- Spec 001 (encuesta pública) implementada (2026-10-16) con dos cambios ya implementados y validados el 2026-10-17: "ciudad en planta, intro, banderas, textos y estilo" y "animaciones y ciudad". Siguiente: spec 002 (/admin). Presentación: 28/10/2026 por la noche.
-- Supabase: proyecto ref `xbsrdugimqpgxmlwbpxo` (Frankfurt, plan Free). Registro público desactivado; "Automatically expose new tables" desactivado.
+- Spec 001 (encuesta pública) implementada (2026-10-16) con tres cambios implementados y validados: "ciudad en planta, intro, banderas, textos y estilo" y "animaciones y ciudad" (17/10), y "estilo de la referencia y ciudad viva" (18/10, T29-T38). Siguiente: spec 002 (/admin). Presentación: 28/10/2026 por la noche.
+- Supabase: proyecto ref `xbsrdugimqpgxmlwbpxo` (Frankfurt, plan Free). Registro público y "Automatically expose new tables" desactivados.
 - Contenido: las 10 preguntas reales ya están; los 6 países son aún de prueba (DE, IT, JP, NG, NL, PL). `CONTENT.version` = "2026-10-test-2". Al recibir los reales, subirla (descarta progreso antiguo, RF-52).
-- Admins: la lista `public.admins` existe pero vacía; los 4 admins se crean en la spec 002 (parte de RF-66 aplazada por decisión del usuario).
-- MCP de Supabase no configurado: la migración se aplicó desde el SQL Editor. El usuario quería el MCP con project ref: decidirlo en la 002.
+- Admins: `public.admins` existe pero vacía; los 4 admins se crean en la spec 002 (parte de RF-66 aplazada por el usuario). MCP de Supabase sin configurar (migración aplicada desde el SQL Editor): decidirlo en la 002.
 - GitHub Pages aún NO está activado: Settings → Pages → Deploy from branch → `main` / `(root)`.
 
 ## Decisiones (y por qué)
-- Flujo: intro → país → ciudad apagada → 10 preguntas → final.
-- Intro: plató del primer evento ("Leisure in Jeopardy", Anexo B) con entrada escalonada (luces, cartel, tablero, público, textos y botón) en ≤ 2 s y después bucle continuo; el botón es pulsable desde el principio. Lo pidió el usuario: más animación sin hacer esperar.
-- Fundidos entre pantallas y entre preguntas: salida 150 ms + entrada 250 ms (WAAPI), con una puerta de tiempo que ignora toques, Back y atrás del sistema mientras dura (evita dobles avances y payloads duplicados). La respuesta se guarda en el mismo tick del clic, no tras el fundido. Movimiento reducido: solo una entrada de 200 ms.
-- Selector de país: cuadrícula de banderas (6 + Other), sin buscador ni nombres: más rápido de tocar.
-- Ciudad 2D en planta rediseñada: mapa acotado (no infinito, lo pidió el usuario) con 16 rellenos, 2 zonas verdes, estanque y árboles; nombre bajo cada sitio al encenderse, generado desde `SITE_LAYOUT`. Durante las preguntas solo se encienden los 10 sitios; con los 10, la ola enciende relleno, calles y coches.
-- Final: mapa acotado y centrado sobre el panel, con bucles "vivos" (coches, ventanas, farolas, ondas, focos, noria, neones) colgados de `data-final-live`; al recargar terminado, bucles desde el principio sin animación de llegada.
-- Nombre del final: "Leisure for Society". Textos con fuentes del sistema, sin look de concurso ("quién quiere ser millonario").
-- Aviso offline como línea dentro de la página (bajo Back/Next y bajo "Thank you"): el fijo tapaba opciones a 320 px.
-- Preguntas de 2-3 opciones + "Want to tell us why?" opcional (máx. 280) en la misma pantalla. Solo botón Back, sin confirmación.
-- Guardado progresivo del estado completo en una fila por participante, con contador creciente y cola local. Escritura solo vía RPC `save_response` (security definer); el UUID v4 actúa de secreto.
-- Quien ya terminó ve directamente la pantalla final: evita duplicados.
-- supabase-js 2.117.2 fijado, cargado del CDN solo cuando hay algo que enviar. Regla: versiones con ≥ 2 semanas.
-- Spec 002: /admin con login para los 4 estudiantes (respuestas, estadísticas por pregunta y país, comentarios, CSV).
+- Flujo: intro → país → ciudad apagada → 10 preguntas → final ("Leisure for Society"). Quien ya terminó ve directamente el final: evita duplicados.
+- Estilo de la demo (decisión del usuario): marcos en hexágono sin letras A/B, botones dorados y mayúsculas condensadas solo en títulos. Sustituye "fuentes del sistema, sin look de concurso".
+- Fuentes Big Shoulders Display + Figtree autoalojadas en `assets/fonts/` con `font-display: optional` (sin servicios externos; si no llegan a tiempo se ve la de reserva sin saltos). `serve.mjs` cachea los `.woff2` un año: con no-store casi nunca llegaban a tiempo en local.
+- Títulos en mayúsculas por CSS con `aria-label`/copia `.visually-hidden` con el texto literal (RF-95): el lector lee el texto tal cual.
+- Intro: plató del primer evento (Anexo B), entrada escalonada ≤ 2 s y bucles continuos (5 nuevos y cuenta de marcadores); botón pulsable desde el principio.
+- Transiciones: salida 200 ms + entrada 350 ms con "rise" (WAAPI), con puerta de tiempo que ignora toques, Back y atrás del sistema (evita dobles avances y payloads duplicados). La respuesta se guarda en el mismo tick del clic. Movimiento reducido: solo un fundido de opacidad de 200 ms.
+- Ciudad: rejilla 6×4 de la demo generada desde `js/lib/city-grid.js` con orden fijo y disperso de los 10 sitios (`SITE_CELLS`). Sustituye la ciudad de `SITE_LAYOUT` con rellenos, árboles y estanque. Rótulo bajo cada sitio al encenderse; con los 10, la ola enciende manzanas, calles y farolas.
+- HUD en `#city-wrap`: porcentaje y barra de progreso (`js/lib/progress.js`, `js/app/hud.js`).
+- Final: mapa acotado sobre el panel con bucles vivos (`data-final-live`); al recargar terminado, bucles desde el principio sin llegada.
+- Selector de país: cuadrícula de banderas (6 + Other), sin buscador ni nombres.
+- Preguntas de 2-3 opciones + "Want to tell us why?" opcional (máx. 280). Solo botón Back, sin confirmación. Aviso offline como línea dentro de la página (el fijo tapaba opciones a 320 px).
+- Guardado progresivo en una fila por participante, con contador creciente y cola local, solo vía RPC `save_response` (security definer); el UUID v4 es el secreto.
+- supabase-js 2.117.2 fijado, del CDN solo cuando hay algo que enviar. Regla: versiones con ≥ 2 semanas.
 
 ## Antes del evento (28/10)
-- Activar GitHub Pages (ver arriba) y probar la URL del QR.
-- Borrar filas de prueba: `dbcheck…` y content_version "2026-10-test-1" y "2026-10-test-2" (incluida `7dbc4a0e-ce77-4275-92ef-85630c85ba27`): docs/supabase.md paso 6.
+- Activar GitHub Pages y probar la URL del QR.
+- Borrar filas de prueba: `dbcheck…` y content_version "2026-10-test-1"/"2026-10-test-2" (incluida `7dbc4a0e-ce77-4275-92ef-85630c85ba27`): docs/supabase.md paso 6.
 - Reactivar Supabase si se pausó (~7 días sin actividad).
-- Probar en Android real el atrás físico (RF-33/34: Chrome marca la guarda como "skippable") y "Reducir movimiento" real.
+- Pruebas a mano pendientes: atrás físico en Android real (RF-33/34, "skippable"); `prefers-reduced-motion: reduce` real (Rendering o ajuste del móvil); DevTools → Network → bloquear `*.woff2`; con una fila de prueba (luego borrarla), que tras volver la red queda una sola fila.
 
 ## Aprendizajes y errores a evitar
 - Dos animaciones CSS en el mismo elemento se pisan: la entrada/ola anima el contenedor o el hijo, nunca el mismo elemento que el bucle.
-- Animar solo `opacity`/`transform` y bucles con ciclos ≥ 1 s: RNF-12 midió 0 tareas largas.
-- Chrome DevTools MCP necesita Chrome instalado. El navegador integrado no pega del portapapeles del sistema.
-- Supabase puede mostrar "You need additional permissions" tras crear la organización: se arregla recargando.
+- Animar solo `opacity`/`transform` y bucles ≥ 1 s (RNF-12: 0 tareas largas). Para cambiar de color, capa aparte: las farolas apagadas (`.lamps__off`) van debajo y solo se anima la opacidad de las encendidas. RF-140 pide "apagadas", no ocultas.
+- Chrome pasa `text-transform` al árbol de accesibilidad: hace falta el texto literal aparte.
+- El MCP de Chrome DevTools no emula `prefers-reduced-motion` ni bloquea URLs: se simuló con `matchMedia` falseado y 404 reales. Emular el móvil recarga la página. Necesita Chrome instalado.
 - Al probar con Supabase bloqueado por initScript, `location.reload()` puede saltarse el bloqueo y escribir filas reales: contarlas como de prueba.
+- Supabase puede mostrar "You need additional permissions" tras crear la organización: se arregla recargando.
 
 ## Mejoras opcionales (reviewer, no bloqueantes)
-- `.final__flash` (css/survey.css, fill both, escalado a 1,8) da ~1 s de scroll vertical de 1-3 px a 320×568 durante el destello: limitar el escalado o recortarlo.
-- `clampText` (js/lib/text.js) no quita espacios de los extremos; `\s` en el SQL (línea ~224) no cubre U+00A0.
-- `.country:active { transform: translateY(1px) }` no se anula con movimiento reducido.
+- Precargar Big Shoulders 800 y Figtree 600 (decisión del usuario pendiente).
+- Parpadeo del mapa de la Q10 al final (`#city-wrap` se funde en la salida); la intro arranca antes de `render()` al recargar; `.plato__buzzer` anima `filter`; el aviso de abajo tapa Theatre encendido.
+- `.final__flash` (escalado a 1,8) da ~1 s de scroll vertical de 1-3 px a 320×568.
+- `clampText` (js/lib/text.js) no quita espacios de los extremos; `\s` en el SQL (~línea 224) no cubre U+00A0.
