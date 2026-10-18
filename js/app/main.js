@@ -1,6 +1,7 @@
 // Boot: loads the local progress, decides the screen and wires the events. It keeps the state, calls the
 // pure logic in js/lib/ after each action, saves the local copy, queues the payload when there is a commit
-// and repaints. Plan §5.
+// and repaints. Screen and question changes fade (plan §15.3): save and light the site first, then fade
+// out, repaint and fade in, with a time gate that ignores every input meanwhile (RF-103 to RF-108).
 import { CONTENT } from "../content.js";
 import { loadOrCreate, serialize } from "../lib/persistence.js";
 import { buildPayload, uuidV4FromBytes } from "../lib/payload.js";
@@ -11,8 +12,10 @@ import { questionView } from "../lib/question-view.js";
 import { createStorage } from "./storage.js";
 import { createSync } from "./sync.js";
 import { saveResponse } from "./db.js";
-import { paintCity } from "./city.js";
-import { cityView } from "../lib/city-view.js";
+import { mountCityLabels, paintCity } from "./city.js";
+import { cityView, holdFullLight } from "../lib/city-view.js";
+import { planTransition, openGate, closeGate, gateAllows } from "../lib/transition.js";
+import { fadeOut, fadeIn, cancelFades } from "./fade.js";
 import { prefersReducedMotion } from "./motion.js";
 import { mountIntro } from "./screens/intro.js";
 import { mountCountry } from "./screens/country.js";
@@ -97,51 +100,113 @@ function render() {
   shownQuestion = survey.current;
 }
 
+// --- Transitions (RF-103 to RF-108) ------------------------------------------------------
+let gate = openGate();
+let enterTimer = 0;
+let openTimer = 0;
+
+/** Runs a user action only when no transition is playing; taps and back presses meanwhile are dropped (RF-106). */
+function act(fn) {
+  if (!gateAllows(gate, performance.now())) return;
+  fn();
+}
+
+/** Section and, when the city changes mode, the city that leave or enter (RF-104: between questions, only the panel). */
+function fading(screen, cityFades) {
+  const els = [sections[screen]];
+  if (cityFades && !cityWrap.hidden) els.push(cityWrap);
+  return els;
+}
+
+/**
+ * Saves the new state at once, then shows it: straight away when nothing changes screen or question (and on
+ * the first paint, RF-107); otherwise the site is lit now (RF-105), the old screen fades out, render() swaps
+ * the screen and moves the focus to the title as the new one fades in (RNF-4).
+ */
 function update(nextSurvey) {
   if (nextSurvey === local.survey) return;
   local = { ...local, survey: nextSurvey };
   persist();
-  render();
+
+  const prev = shownScreen === null ? null : { screen: shownScreen, current: shownQuestion };
+  const plan = planTransition(prev, { screen: nextSurvey.screen, current: nextSurvey.current }, {
+    reduced: prefersReducedMotion(),
+  });
+  if (plan.scope === "none") {
+    render();
+    return;
+  }
+
+  // Light the answered site now; towards the final the full light-up waits for the wave (RF-73, RF-105).
+  const view = cityView(litSites(nextSurvey, CONTENT));
+  paintCity(city, nextSurvey.screen === "final" ? holdFullLight(view) : view);
+
+  gate = closeGate(gate, performance.now(), plan.totalMs);
+  const leaving = fading(prev.screen, plan.cityFades);
+  fadeOut(leaving, plan.outMs);
+
+  const enter = () => {
+    cancelFades(leaving); // a hidden section must not keep opacity 0 for the next time it shows
+    render();
+    fadeIn(fading(local.survey.screen, plan.cityFades), plan.inMs);
+    // Once the gate opens, repaint the question: text typed during the fade was dropped (plan §15.3).
+    openTimer = setTimeout(() => {
+      if (local.survey.screen === "question") questionScreen.paint(questionView(local.survey, CONTENT));
+    }, plan.inMs);
+  };
+  clearTimeout(enterTimer);
+  clearTimeout(openTimer);
+  if (plan.outMs > 0) enterTimer = setTimeout(enter, plan.outMs);
+  else enter(); // reduced motion: a single fade-in (RF-108)
 }
 
-// Browser / system back behaves like Back on questions 2-10 and does nothing elsewhere (RF-33, RF-34).
-const historyGuard = createHistoryGuard({ onBack: () => update(systemBack(local.survey)) });
+// Browser / system back behaves like Back on questions 2-10 and does nothing elsewhere (RF-33, RF-34);
+// during a transition it is ignored and history.js puts the guard back as always (RF-106).
+const historyGuard = createHistoryGuard({ onBack: () => act(() => update(systemBack(local.survey))) });
 
 mountIntro(sections.intro, {
-  onStart: () => {
+  onStart: () => act(() => {
     historyGuard.ensureGuard();
     update(start(local.survey));
-  },
+  }),
 });
 
 mountCountry(sections.country, {
   countries: CONTENT.countries,
   onChoose(code) {
-    const nextSurvey = chooseCountry(local.survey, code);
-    if (nextSurvey === local.survey) return;
-    historyGuard.ensureGuard();
-    update(nextSurvey);
-    commit(); // first save creates the participant's row with the country (RF-15, RF-42)
+    act(() => {
+      const nextSurvey = chooseCountry(local.survey, code);
+      if (nextSurvey === local.survey) return;
+      historyGuard.ensureGuard();
+      update(nextSurvey);
+      commit(); // first save creates the participant's row with the country (RF-15, RF-42)
+    });
   },
 });
 
 questionScreen = mountQuestion(sections.question, {
   onSelect(letter) {
-    historyGuard.ensureGuard();
-    update(selectOption(local.survey, CONTENT, letter));
+    act(() => {
+      historyGuard.ensureGuard();
+      update(selectOption(local.survey, CONTENT, letter));
+    });
   },
   // Drafts are local only: stored on the device, never sent until Next (RF-31).
-  onText: (value) => update(setText(local.survey, CONTENT, value)),
+  onText: (value) => act(() => update(setText(local.survey, CONTENT, value))),
   onNext() {
-    const result = next(local.survey, CONTENT);
-    if (!result.commit) return;
-    historyGuard.ensureGuard();
-    update(result.state); // lights the site and shows the next question, or the final screen after Q10
-    commit(); // full state with the new answer (RF-27, RF-32, RF-36)
+    act(() => {
+      const result = next(local.survey, CONTENT);
+      if (!result.commit) return;
+      historyGuard.ensureGuard();
+      update(result.state); // saves, lights the site and starts the fade to the next question or the final
+      commit(); // full state with the new answer, queued before the fade ends (RF-27, RF-32, RF-36, RF-105)
+    });
   },
   onBack() {
-    historyGuard.ensureGuard();
-    update(back(local.survey));
+    act(() => {
+      historyGuard.ensureGuard();
+      update(back(local.survey));
+    });
   },
 });
 
@@ -151,6 +216,7 @@ finalScreen = mountFinal(sections.final, {
   reducedMotion: prefersReducedMotion,
 });
 
+mountCityLabels(city); // site labels from SITE_LAYOUT, before the first paint so a resume shows them without a fade
 render();
 
 // Retry when the connection comes back and every time the survey opens (RF-45).

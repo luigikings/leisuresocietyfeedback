@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { SITE_IDS, SITE_NAMES } from "../js/lib/sites.js";
-import { cityView } from "../js/lib/city-view.js";
+import { cityView, holdFullLight } from "../js/lib/city-view.js";
 
 test("SITE_NAMES has an English name for each SITE_ID and nothing else (RF-75)", () => {
   assert.deepEqual(Object.keys(SITE_NAMES).sort(), [...SITE_IDS].sort());
@@ -55,4 +55,21 @@ test("does not mutate its input and accepts injected site ids and names", () => 
   assert.deepEqual(view.lit, ["a", "b"]);
   assert.equal(view.allLit, true);
   assert.equal(view.label, "Night city: 2 of 2 places lit: A, B");
+});
+
+test("holdFullLight keeps lit and label, turns allLit off and does not mutate its input (RF-73, RF-105)", () => {
+  const view = cityView([...SITE_IDS]);
+  const snapshot = structuredClone(view);
+  const held = holdFullLight(view);
+  assert.equal(held.allLit, false);
+  assert.deepEqual(held.lit, view.lit);
+  assert.equal(held.label, view.label);
+  assert.notEqual(held, view);
+  assert.notEqual(held.lit, view.lit);
+  assert.deepEqual(view, snapshot);
+});
+
+test("holdFullLight on a partly lit city changes nothing but the object identity", () => {
+  const view = cityView(["park"]);
+  assert.deepEqual(holdFullLight(view), view);
 });

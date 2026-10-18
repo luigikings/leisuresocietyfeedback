@@ -4,8 +4,9 @@ import { CONTENT } from "../js/content.js";
 import { OTHER_CODE } from "../js/lib/sites.js";
 import {
   FINAL_MAX_MS, FINAL_PHASES, PHASE_ORDER, finalEndMs, finalCssVars, finalFlags, flagLayout,
-  confettiPieces, CONFETTI_COLORS, FLAG_WIDTH,
+  confettiPieces, CONFETTI_COLORS, FLAG_WIDTH, liveDelays,
 } from "../js/lib/final-view.js";
+import { TRANSITION_OUT_MS } from "../js/lib/transition.js";
 
 // Deterministic "random" for tests: cycles through fixed values in [0, 1).
 function fakeRandom(values = [0, 0.25, 0.5, 0.75, 0.999]) {
@@ -106,4 +107,22 @@ test("confettiPieces: count pieces inside the screen, within the confetti phase,
   }
   assert.deepEqual(confettiPieces(40, fakeRandom()), pieces, "same random → same pieces");
   assert.deepEqual(confettiPieces(0, fakeRandom()), []);
+});
+
+test("liveDelays: with the arrival, cars start with the cars phase and the city loops when the wave ends (RF-114)", () => {
+  const p = Object.fromEntries(FINAL_PHASES.map((x) => [x.id, x]));
+  assert.deepEqual(liveDelays({ animate: true }), {
+    cars: `${p.cars.start}ms`,
+    city: `${p.wave.start + p.wave.duration}ms`,
+  });
+  assert.deepEqual(liveDelays({ animate: true }), { cars: "900ms", city: "1400ms" });
+});
+
+test("liveDelays: reopening a finished survey starts the loops at once (RF-56)", () => {
+  assert.deepEqual(liveDelays({ animate: false }), { cars: "0ms", city: "0ms" });
+  assert.deepEqual(liveDelays(), { cars: "0ms", city: "0ms" });
+});
+
+test("the fade-out before the final plus the arrival still end within 8 s of Next (RF-74)", () => {
+  assert.ok(TRANSITION_OUT_MS + finalEndMs() <= FINAL_MAX_MS);
 });

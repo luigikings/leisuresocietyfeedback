@@ -103,3 +103,16 @@ export function confettiPieces(count, random) {
 function round1(v) {
   return Math.round(v * 10) / 10 || 0; // || 0 avoids -0
 }
+
+/**
+ * Delays of the living-city loops of the final (RF-114 to RF-116), as --live-cars-delay and --live-delay.
+ * With the arrival, cars start with the cars phase and windows, lamps, water and site lights when the wave
+ * ends; when a finished survey is reopened (RF-56), every loop runs from the start.
+ * @returns {{ cars: string, city: string }}
+ */
+export function liveDelays({ animate = false } = {}) {
+  if (!animate) return { cars: "0ms", city: "0ms" };
+  const cars = FINAL_PHASES.find((p) => p.id === "cars");
+  const wave = FINAL_PHASES.find((p) => p.id === "wave");
+  return { cars: `${cars.start}ms`, city: `${wave.start + wave.duration}ms` };
+}

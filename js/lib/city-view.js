@@ -18,3 +18,12 @@ export function cityView(litIds, siteIds = SITE_IDS, names = SITE_NAMES) {
   const label = lit.length === 0 ? count : `${count}: ${lit.map((id) => names[id]).join(", ")}`;
   return { lit, allLit, label };
 }
+
+/**
+ * The same view without the full light-up. When "Next" on Q10 lights the stadium at once (RF-105), the
+ * fillers, windows and streets wait for the final screen, so the light wave is what lights them (RF-73).
+ * Returns a new object; the input is not changed.
+ */
+export function holdFullLight(view) {
+  return { ...view, lit: [...view.lit], allLit: false };
+}

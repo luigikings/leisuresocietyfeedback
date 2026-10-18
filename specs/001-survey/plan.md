@@ -519,5 +519,225 @@ Motivo: en la validación de T19, a 320×568, el aviso fijo abajo tapaba parte d
   - Se elimina el padding inferior de 84 px de `.app` (queda `16px + safe-area` en todas las pantallas) y la regla `body:has(.offline-notice.is-visible) .screen--final` que subía el panel.
   - En el final, `.screen--final:has(.offline-notice.is-visible)` devuelve la altura de la línea (19 px) desde su propio espacio inferior (`bottom` de 16 a 4 px y `padding-bottom` de 16 a 9 px), así que el borde superior del panel no se mueve y no tapa la ciudad.
   - Mientras suena el final, el aviso del panel entra con los textos (misma animación que "Thank you"); con movimiento reducido aparece directamente.
-- **Tests** (`tests/markup.test.js`): 2 avisos `data-offline-notice` con `role="status"` y `aria-live="polite"`, uno tras `.actions--nav` y otro tras "Thank you", ninguno en intro ni selector, sin `id="offline-notice"`; `main.js` usa `querySelectorAll("[data-offline-notice]")`; ninguna regla `.offline-notice` con `position: fixed|absolute|sticky` ni `pointer-events`; sin `body:has(.offline-notice` ni `84px`; `.app` con `16px + safe-area`; regla de compensación del panel con `bottom` y `padding-bottom`.
+- **Tests** (`tests/markup.test.js`): 2 avisos `data-offline-notice` con `role="status"` y `aria-live="polite"`, uno tras `.actions--nav` y otro tras "Thank you", ninguno en intro ni selector, sin `id="offline-notice"`; `main.js` usa `querySelectorAll("[data-offline-notice]")`; ninguna regla `.offline-notice` con `position: fixed|absolute|sticky` ni `pointer-events`; sin `body:has(.offline-notice` ni `84px`; `.app` con `16px + safe-area`; regla de compensación del panel con `bottom` y `padding-bottom`. *(Esta regla desaparece en §15.6: el panel pasa a estar en el flujo.)*
+
+## 15. Cambio de requisitos 2026-10-17: animaciones y ciudad
+Cubre RF-7, RF-8, RF-54, RF-56, RF-69, RF-71, RF-74, RF-77, RF-79, RF-87 (modificados), RF-98 a RF-118 (nuevos), RNF-2, RNF-4, RNF-7 (modificados) y RNF-12 (nuevo). Esta sección **sustituye** a lo que digan §14.4 (entrada de la intro), §14.6 (periferia, edificios de relleno e iconos), §14.7 (ciudad a pantalla completa, coches que aparcan) y §14.11 (compensación del panel del final). No cambian la tabla, las políticas RLS, la RPC, la sincronización, la persistencia ni la máquina de estados (`survey-state.js`). Sin dependencias nuevas: todo es CSS, SVG en línea y la Web Animations API nativa del navegador.
+
+### 15.1 Lógica pura nueva o ampliada (`js/lib/`) — RNF-7
+Todas sin DOM, red ni reloj (el tiempo se pasa como parámetro).
+
+**`intro-entry.js`** (nuevo) — RF-98, RF-100
+```
+INTRO_ENTRY_MAX_MS = 2000
+BUTTON_HIGHLIGHT_MAX_MS = 600
+INTRO_ENTRY = [                     // orden de RF-98; ms
+  { id: "lights",  start:    0, duration: 500 },   // riel, 4 focos y haces
+  { id: "sign",    start:  200, duration: 400 },   // cartel "Leisure in / Jeopardy" y bombillas
+  { id: "board",   start:  400, duration: 500 },   // tablero
+  { id: "onair",   start:  650, duration: 350 },   // postes y "On air"
+  { id: "floor",   start:  800, duration: 300 },   // borde y suelo del escenario
+  { id: "people",  start:  950, duration: 500 },   // concursantes y atriles
+  { id: "thanks",  start: 1200, duration: 400 },   // texto de RF-81
+  { id: "ask",     start: 1350, duration: 400 },   // texto de RF-82
+  { id: "button",  start: 1400, duration: 600 },   // realce del botón (sin opacidad ni movimiento)
+]
+introEntryEndMs(steps) = max(start + duration)
+introEntryCssVars(steps) → { "--enter-<id>-start": "<n>ms", "--enter-<id>-dur": "<n>ms" }
+```
+
+**`transition.js`** (nuevo) — RF-103 a RF-108
+```
+TRANSITION_OUT_MS = 150; TRANSITION_IN_MS = 250; REDUCED_FADE_MS = 200
+cityMode(screen) = "none" (intro, country) | "question" | "final"
+planTransition(prev, next, { reduced }) →
+  { scope: "none" | "panel" | "screen", outMs, inMs, totalMs, cityFades: boolean }
+  prev = null (primera pintura, recarga, reanudación)            → scope "none"      (RF-107)
+  misma pantalla y misma pregunta (elegir opción, escribir)      → scope "none"
+  pregunta → otra pregunta                                       → scope "panel", cityFades false (RF-104)
+  otro cambio de pantalla                                        → scope "screen", cityFades = cityMode(prev) ≠ cityMode(next)
+  reduced: outMs 0, inMs = REDUCED_FADE_MS                       (un solo fundido, RF-108)
+  si no:   outMs 150, inMs 250; si next es "final", inMs 0 (el final trae su propia llegada)
+  totalMs = outMs + inMs
+openGate() → { busyUntil: 0 }
+closeGate(gate, now, totalMs) → { busyUntil: now + totalMs }
+gateAllows(gate, now) → now >= gate.busyUntil                  (RF-106)
+```
+La puerta depende solo del tiempo, así que nunca se queda cerrada aunque una animación no termine (pestaña en segundo plano).
+
+**`site-labels.js`** (nuevo) — RF-112, RF-113
+```
+LABEL_FONT = 11.5          // unidades del viewBox: 11.5 × 288 / 400 = 8.3 px a 320 px (RF-113)
+LABEL_LINE = 1.15          // interlineado
+CHAR_WIDTH = 0.62          // ancho medio estimado de un carácter en negrita, en em (conservador)
+SITE_LAYOUT = { <siteId>: { block: {x,y,w,h}, icon: {x,y,w,h}, label: { x, y, lines: [..] } } }
+  // lines = SITE_NAMES partido en 1 o 2 líneas: "Concert"/"hall", "Town"/"square", "Food"/"market"; el resto en 1
+labelBox(label) → {x,y,w,h}           // centrado en x; ancho = máx. línea × CHAR_WIDTH × LABEL_FONT + 4 de margen
+minLabelPx(mapWidthPx) = LABEL_FONT × mapWidthPx / 400
+boxesOverlap(a, b) → boolean
+```
+El rótulo de cada sitio va bajo su icono: en la parte baja de su manzana y, si no cabe, sobre la calle de debajo (nunca sobre otra manzana con sitio). Los iconos se reducen y suben dentro de su manzana para dejar sitio (§15.4).
+
+**`final-view.js`** (ampliado) — RF-74, RF-114 a RF-117
+- `liveDelays({ animate })` → `{ cars: "900ms", city: "1400ms" }` si `animate` (los coches arrancan con la fase `cars`; ventanas, farolas, agua y luces de los sitios cuando acaba la ola), o `{ cars: "0ms", city: "0ms" }` al reabrir. Son `--live-cars-delay` y `--live-delay` en `#app`.
+- `FINAL_PHASES` no cambia (7,2 s). Nuevo test: `TRANSITION_OUT_MS + finalEndMs() ≤ FINAL_MAX_MS` (7,35 s ≤ 8 s, RF-74).
+
+**`city-view.js`** (ampliado) — RF-105, RF-73
+- `holdFullLight(view)` → `{ ...view, allLit: false }`. Al pulsar "Next" en la Q10 el estadio se enciende al momento (RF-105), pero `data-all-lit` (relleno, ventanas, calles) se pone al cambiar al final, a la vez que `data-final="play"`, para que la ola sea la que enciende la ciudad (RF-73).
+
+### 15.2 Entrada de la intro y paso al bucle — RF-7, RF-8, RF-87, RF-98 a RF-102
+- **`index.html`**: los elementos del plató se agrupan, sin moverlos ni cambiar su orden de dibujo, en 6 `<g class="plato__enter" data-enter="lights|sign|board|onair|floor|people">` (los 8 haces, el riel y los 4 focos; cartel con bombillas y textos; tablero; postes y "On air"; suelo, elipse y borde; los 3 grupos). Las clases de bucle (`plato__beam`, `plato__spot`, …) quedan en los hijos, así que **la entrada anima el grupo y el bucle anima los hijos**: no compiten por la misma propiedad `animation` y el bucle sigue sin saltos al terminar la entrada (RF-99).
+- **`css/survey.css`**:
+  - En `.screen--intro` se declaran literalmente las variables `--enter-<id>-start/-dur` con los valores de `INTRO_ENTRY` (un test comprueba que coinciden). **Decisión**: valores en el CSS. **Descartado**: ponerlos desde JS, porque la intro se pinta antes de que cargue el módulo y habría un parpadeo (todo visible, luego oculto, luego entrando) y más trabajo antes de "Give feedback" (RNF-5).
+  - `.plato__enter { animation: intro-enter var(--enter-<id>-dur) ease-out var(--enter-<id>-start) both }` con `@keyframes intro-enter { from { opacity: 0; transform: translateY(6px) } }`; para `people`, `translateY(10px)`; para `lights`, solo opacidad. `.intro__thanks` y `.intro__ask` usan la misma animación con sus variables. Solo `transform` y `opacity`: no cambia el tamaño de nada ni aparece scroll horizontal (RF-102).
+  - Botón (RF-100): `.screen--intro .btn { animation: intro-btn-glow var(--enter-button-dur) ease-in-out var(--enter-button-start) both }`, que solo anima `box-shadow` (halo cálido que crece y vuelve al de reposo). Nunca toca `opacity`, `visibility` ni `transform`: está visible, en su sitio y pulsable desde el primer fotograma (RF-7, RF-101).
+  - Los desfases de las bombillas usaban `:nth-of-type(5-8)` sobre los `<circle>` del SVG; al quedar dentro de su grupo pasan a `:nth-of-type(1-4)`. Se revisan todos los `:nth-of-type` y `:nth-child` del plató.
+  - Movimiento reducido: la regla global `animation: none !important` quita entrada y bucle. Los estilos base son el plató completo, así que todo se ve al momento y quieto (RF-87).
+- **`screens/intro.js`**: sin cambios (solo el clic). El clic durante la entrada funciona porque no hay nada que lo bloquee; la transición de §15.3 hace el resto.
+
+### 15.3 Transiciones de pantalla y de pregunta — RF-103 a RF-108, RNF-4
+- **`main.js`** se reorganiza en tres pasos. Así el guardado no espera a ninguna animación y la puerta impide los dobles toques.
+```
+gate = openGate(); shown = null            // { screen, current } pintados
+act(fn): si !gateAllows(gate, performance.now()) → return; fn()      // envuelve TODOS los manejadores:
+         onStart, onChoose, onSelect, onText, onNext, onBack y el onBack del historial (RF-106)
+update(nextSurvey):
+  local = …; persist()                                           // como ahora
+  plan = planTransition(shown, target(nextSurvey), { reduced: prefersReducedMotion() })
+  view = cityView(litSites(...))
+  paintCity(city, target es "final" y plan.scope ≠ "none" ? holdFullLight(view) : view)   // sitio encendido YA (RF-105)
+  si plan.scope == "none": render(); return
+  gate = closeGate(gate, performance.now(), plan.totalMs)
+  fadeOut(elementos que salen, plan.outMs)                       // sección actual (y city-wrap si plan.cityFades)
+  setTimeout(() => { render(); fadeIn(elementos que entran, plan.inMs) }, plan.outMs)
+onNext: result = next(...); update(result.state); commit()       // commit() justo después: antes de que acabe el fundido
+```
+  - `render()` es el de ahora: cambia `hidden`, pinta la pregunta y la ciudad (la vista completa, con `allLit`) y arranca el final. El foco pasa al título al empezar el fundido de entrada (RNF-4).
+  - En `scope "panel"` solo se funde `#screen-question`; `#city-wrap` no se toca (RF-104). El contenido de la pregunta saliente se queda tal cual durante el fundido de salida, porque `render()` aún no ha corrido.
+  - Al abrir o recargar, `shown` es `null`: primera pintura directa (RF-107). La intro se ve con su entrada CSS, y la pregunta reanudada o el final, directamente.
+  - Atrás del sistema durante una transición: `act` lo ignora y `history.js` vuelve a poner la guarda como siempre, así que no se sale de la página ni se pierde nada. `history.js` no cambia.
+  - Cuando la puerta se abre tras una transición, se repinta la pregunta una vez: si el participante tecleó durante el fundido de entrada, ese texto se descarta y el campo vuelve a mostrar el estado guardado.
+- **Fundidos** (nuevo `js/app/fade.js`, adaptador de interfaz sin lógica): `fadeOut`/`fadeIn` usan `el.animate([{opacity:1},{opacity:0}], {duration, fill:"forwards"})` (Web Animations API, nativa) y, al terminar el fundido de entrada, `cancel()` para no dejar estilos colgados. Con duración 0 no se anima nada. **Decisión**: WAAPI con las duraciones de `transition.js`. **Descartado**: clases CSS con `@keyframes`, porque entre dos preguntas la sección es la misma y habría que forzar un reflow para reiniciar la animación, y además la regla global de movimiento reducido (`animation: none !important`) anularía también el fundido de 200 ms que sí exige RF-108.
+- **CSS**: se eliminan `.screen { animation: screen-in 200ms }`, `@keyframes screen-in` y su copia en el bloque de movimiento reducido. Si no, se sumarían a los fundidos nuevos y además habría un fundido en la primera pintura, que RF-107 no quiere.
+- **Q10 → final**: fundido de salida de 150 ms de la pregunta y de la ciudad (`cityFades`, porque la ciudad cambia de modo); después `render()` pone el final, `data-all-lit` y `data-final="play"` a la vez. La llegada sigue durando 7,2 s, así que termina a 7,35 s de "Next" (RF-74).
+
+### 15.4 Ciudad en planta rediseñada — RF-69, RF-70, RF-71, RF-109 a RF-111, RNF-4
+`viewBox 0 0 400 300` y la cuadrícula de calles no cambian (3 avenidas horizontales en y = 70, 145 y 220, y 4 verticales en x = 75, 155, 235 y 315), ni tampoco `data-site`, `data-filler`, `--fx`, `.win`, `.lamp`, `.street--v`, `.city__wave`, `.glow`, `.lt` y `.lt-stroke`, que usan el CSS, `city.js` y los tests.
+- **Mapa acotado** (RF-111):
+  - se borra toda la periferia: las calles van de 0 a 400 y de 0 a 300, y desaparecen las manzanas con y < 0 o y > 300 y el suelo de −200…600;
+  - todo el contenido va dentro de `<g class="city__map" clip-path="url(#map-clip)">`, con `<clipPath id="map-clip"><rect width="400" height="300" rx="12"/></clipPath>`, de modo que nada (coches, ola) se dibuja fuera;
+  - encima, fuera del recorte, va `<rect class="city__border" x="1" y="1" width="398" height="298" rx="11">` con trazo de 2 unidades en `--line` al 60 %;
+  - `.city { overflow: hidden }` (antes `visible`).
+- **Volumen y sombras** (RF-109). Luz desde arriba a la izquierda y sombra hacia abajo a la derecha en toda la ciudad:
+  - cada edificio de relleno es `<g class="filler" data-filler style="--fx">` con:
+    - `<rect class="shadow" transform="translate(2.5 3)">` (`#050816`, opacidad .45);
+    - `.filler__roof` (tono base);
+    - `.filler__face`, el faldón iluminado: la mitad superior o izquierda del tejado, un tono más claro;
+    - `.filler__ridge`, la línea de cumbrera;
+    - las ventanas `.win` dentro de `<g class="filler__lights">` (para el bucle de §15.7).
+  - Cada sitio lleva sus `.shadow` con el mismo `translate(2.5 3)` y al menos dos tonos en su tejado: `.body` y `.body--top`, el más claro, en cubiertas, gradas, toldos y cornisas.
+  - La ola de la llegada también aclara `.filler__face`.
+  - **Decisión**: sombras como copias desplazadas de las formas. **Descartado**: `<filter>` con `feDropShadow`, porque el filtro se recalcularía en cada fotograma mientras parpadean las ventanas y circulan los coches, que están dentro del mismo grupo (riesgo para RNF-12).
+- **Naturaleza y agua** (RF-110), en `<g class="city__nature" aria-hidden="true">`:
+  - 2 manzanas que ahora no tienen sitio pasan a ser zonas verdes `<rect class="green" data-green>`: la central de la fila 2 (x 168-232, y 83-142) y la de la esquina inferior derecha (x 328-397, y 233-297). Sus 4 edificios de relleno se quitan: quedan **16** (dentro de 15-25, RF-70).
+  - En la zona verde central va un estanque `<path class="water" data-water>` con 2 o 3 `.water__ripple` (arcos claros finos).
+  - ≥ 12 árboles `<g class="tree">` (sombra + copa `#24504a` + brillo pequeño más claro): unos 5 en cada zona verde y ≥ 2 en los bordes de manzanas de relleno, nunca sobre calles, tejados ni sitios.
+  - Con `#city[data-all-lit]`, las zonas verdes y los árboles se aclaran como el parque.
+- **Iconos de los sitios** (RF-71): se mantienen los motivos de §14.6 con más detalle (dos tonos, sombra) y se reducen al 75-85 %, subidos dentro de su manzana para dejar el hueco del rótulo. La caja de cada icono queda en `SITE_LAYOUT[id].icon`: en la validación se comprueba con `getBBox()` que el dibujo real cabe en esa caja.
+- **Orden de dibujo** dentro de `.city__map`: suelo, calles (con farolas), manzanas, naturaleza, relleno, sitios, coches, **rótulos**, ola. Los rótulos quedan encima de los coches, así que un coche nunca tapa un rótulo (RF-117).
+- **Accesibilidad**: el SVG sigue con `role="img"` y el `aria-label` de RF-75. Sus hijos no se exponen y además `.city__labels`, `.city__nature`, `.city__cars` y los grupos de relleno llevan `aria-hidden="true"`, así que los nombres no se leen dos veces (RNF-4).
+
+### 15.5 Rótulos de sitio — RF-71, RF-75, RF-77, RF-112, RF-113
+- **`js/app/city.js`**: nueva `mountCityLabels(svg, layout = SITE_LAYOUT)`, que se llama una vez al arrancar. Crea en `<g class="city__labels" aria-hidden="true">` un `<g class="site-label" data-site-label="<id>">` por sitio, con:
+  - un rectángulo de fondo `rgb(11 16 38 / .78)` con radio de 3;
+  - un `<text>` con 1 o 2 `<tspan>` y el texto puesto con `textContent`.
+  `paintCity` también pone `is-lit` en `[data-site-label]` según `view.lit`. **Decisión**: rótulos creados desde `SITE_LAYOUT`, una sola fuente de verdad para posiciones y textos (los tests de solapes miran lo mismo que se pinta) y `index.html` sigue sin `<text>` en la ciudad. **Descartado**: escribirlos a mano en el HTML, porque habría dos copias de las posiciones.
+- **CSS**:
+  - `.site-label { opacity: 0; transition: opacity 400ms ease }` y `.site-label.is-lit { opacity: 1 }` (RF-112);
+  - texto `--text`, `font: 700 11.5px/1.15 var(--sans)` en unidades del viewBox, `text-anchor: middle`;
+  - con movimiento reducido, la regla global deja la transición en 200 ms (RF-77).
+  En la reanudación y en el final recargado, la ciudad se pinta mientras aún está oculta (`hidden`), así que el rótulo aparece sin fundido.
+- **Tamaño**: a 320 px el mapa mide 288 px de ancho, así que 11,5 unidades son 8,3 px (≥ 8, RF-113). A 375 px son 9,9 px, y en el final, más.
+- **Contraste**: `--text` sobre el fondo del rótulo al 78 % da ≥ 12:1 sobre la ciudad oscura. Se mide con DevTools el peor caso, sobre el halo encendido de un sitio vecino.
+
+### 15.6 Final con el mapa acotado — RF-54, RF-56, RF-79, RNF-4
+- **CSS** (sustituye a §14.7, "Ciudad a pantalla completa"):
+  - `.app[data-screen="final"]` pasa a ser una columna flex de `100dvh` (menos el padding inferior), con `display: flex; flex-direction: column; gap: 8px`;
+  - `[data-screen="final"] .city-wrap` lleva `flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; margin: 8px -8px 0`. El margen negativo deja 8 px hasta el borde de la pantalla, que es el mínimo de RF-79, en lugar de los 16 px de `.app`. Va **sin** `position: fixed` ni `inset: 0`;
+  - `[data-screen="final"] .city` lleva `height: 100%; width: auto; max-width: 100%` (`meet`, sin `slice`): el mapa entero, lo más grande posible y centrado;
+  - alrededor se ve el fondo de `body` (noche lisa), sin calles.
+- **Panel**: `.screen--final` deja de ser `position: fixed` y queda en el flujo (`flex: none`) bajo el mapa, con el mismo fondo `rgb(11 16 38 / .82)` y radio de 20 px. En el estado final el mapa y el panel nunca se solapan, porque el flex reparte el alto. Se borra `.screen--final:has(.offline-notice.is-visible)`: con el panel en el flujo, el aviso solo encoge un poco el mapa. El confeti sigue en `position: fixed`. Durante el giro, las banderas pueden pasar por encima del mapa (RF-79 solo pide que no se solapen en el estado final).
+- **Medidas esperadas**:
+  - a 375×667, el mapa mide ≈ 359×269 (en las preguntas, 343×257) y el panel, unos 175 px;
+  - a 320×568, el mapa mide ≈ 304×228 (en las preguntas, 288×216).
+  Si en una pantalla baja el alto manda, el mapa se reduce entero.
+
+### 15.7 Ciudad viva tras el encendido total — RF-53, RF-54, RF-114 a RF-118
+- **`screens/final.js`**: `show({ animate })` pone siempre `#app[data-final-live]` y las variables de `liveDelays({ animate })`. Con `animate`, además, pone `data-final="play"` (como ahora) y luego `done`. `hide()` lo quita todo. Los bucles cuelgan de `[data-final-live]`, que no cambia al pasar de `play` a `done`, así que no se reinician ni saltan (RF-117).
+- **Bucles**: todas las reglas llevan `.app[data-final-live] #city[data-all-lit]`, son `infinite`, duran ≥ 1 s y usan `ease-in-out` o `linear`, sin `steps()`.
+  - **Coches** (RF-114): 4 `.car` con `data-axis="x|y"`, colocados sobre una calle de su eje (3 en las avenidas horizontales, en sentidos alternos, y 1 en una vertical), con:
+
+    ```css
+    animation: car-x-<n> <8-12 s> linear var(--live-cars-delay) infinite backwards;
+    ```
+
+    Cruzan el mapa de borde a borde moviéndose solo por su eje (`translateX` o `translateY`). Al llegar al borde los recorta `#map-clip` y vuelven a entrar por el otro lado. La llegada ya no los aparca: se borran `final-car` y `--car-from` (RF-53: "coches circulando" sigue siendo cierto desde los 0,9 s).
+  - **Ventanas** (RF-115): un tercio de los `.filler__lights` (marcados con `data-twinkle`) hace `opacity` 1 ↔ .55, de 3-5 s y con desfases. El bucle anima el grupo y la ola anima la `.win` de dentro: no compiten.
+  - **Farolas** (RF-115): `.lamps` se divide en 2 grupos (`.lamps__a`, `.lamps__b`) que laten `opacity` 1 ↔ .7, 4 s, en contrafase. Las `.lamp` siguen con su animación de la ola.
+  - **Agua** (RF-116): `.water__ripple` con `stroke-dasharray` y `stroke-dashoffset`, 6 s `linear`.
+  - **Luces de sitios** (RF-116): focos del estadio (`opacity` 1 ↔ .75, 2,5 s), noria de la feria (`<g class="wheel">` gira 360°, 24 s `linear`, `transform-box: fill-box`) y luces de la discoteca (`opacity` 1 ↔ .6, 1,6 s, en contrafase rosa y blanca).
+  - **Destellos** (RF-117): ningún cambio de brillo dura menos de 1 s ni pasa de opacidad .55, así que no hay más de 3 destellos por segundo. Banderas, textos y rótulos no tienen bucle.
+- **Movimiento reducido** (RF-118): la regla global quita todos los bucles. Los coches se quedan en su posición base, que está sobre su calle y dentro del mapa, y el estado final se ve completo y quieto. `show()` sigue llamando a `done()` directamente.
+- **Recarga terminada** (RF-56): `animate` es falso, así que se ve `done` + `data-final-live` con retrasos de 0 ms: bucles desde el primer momento, sin llegada.
+
+### 15.8 Fluidez (RNF-12) y cómo medirla
+- Las animaciones nuevas solo usan `opacity`, `transform`, `box-shadow` (solo en el botón, 600 ms una vez) y `stroke-dashoffset`. No hay filtros nuevos ni JS por fotograma: el JS solo pone atributos y lanza los fundidos de WAAPI.
+- **Medición** con el MCP Chrome DevTools a 375×667, sin limitar la CPU:
+  1. con `evaluate_script`, se instala `new PerformanceObserver(l => window.__long.push(...l.getEntries())).observe({ type: "longtask", buffered: true })`;
+  2. se dejan correr 10 s el bucle de la intro, luego 10 preguntas con sus transiciones, y luego 15 s el estado final vivo;
+  3. `window.__long.filter(e => e.duration > 50)` debe estar vacío durante los bucles (RNF-12).
+  Además, una traza con `performance_start_trace`/`performance_stop_trace` de 10 s del final vivo sirve para revisar que no hay tareas rojas. Con CPU ×4 se mide solo a título informativo.
+
+### 15.9 Tests (`node --test`)
+| Archivo | Cambio | Cubre |
+|---|---|---|
+| tests/intro-entry.test.js | **Nuevo**: los ids siguen el orden de RF-98; las salidas no decrecen; `introEntryEndMs ≤ 2000`; `button` es el último y dura ≤ 600; las variables CSS tienen el formato `--enter-<id>-start/-dur` | RF-98, RF-100 |
+| tests/transition.test.js | **Nuevo**: `prev` null → none; misma pantalla y pregunta → none; pregunta → pregunta → panel sin `cityFades`; intro → país sin `cityFades`; país → pregunta y pregunta → final con `cityFades`; 150/250 (y `inMs` 0 hacia el final); reduced → 0/200; `totalMs ≤ 400`; puerta: cerrada entre `now` y `now + total`, abierta después, abierta al principio | RF-103 a RF-108 |
+| tests/site-labels.test.js | **Nuevo**: un `SITE_LAYOUT` por `SITE_ID`; las líneas unidas con espacio dan `SITE_NAMES[id]`; ≤ 2 líneas; `minLabelPx(288) ≥ 8`; cada caja de rótulo dentro de 0-400 × 0-300 y bajo su icono (`label.y ≥ icon.y + icon.h`); ningún par de rótulos se solapa; ningún rótulo se solapa con el icono de otro sitio | RF-112, RF-113 |
+| tests/final-view.test.js | **Ampliar**: `liveDelays({animate:true})` = fases `cars` y fin de `wave`; `{animate:false}` = 0 ms; `TRANSITION_OUT_MS + finalEndMs() ≤ FINAL_MAX_MS` | RF-74, RF-114 |
+| tests/city-view.test.js | **Ampliar**: `holdFullLight` deja `lit` y `label` y pone `allLit` a false sin mutar la entrada | RF-73, RF-105 |
+| tests/markup.test.js | **Actualizar**: (1) "the stage loops forever" excluye las reglas `.plato__enter` del "solo infinitas" y se añade que hay 6 `plato__enter` con los `data-enter` de RF-98, con animación finita `both` cuyas variables existen en `.screen--intro` con los valores de `INTRO_ENTRY`; (2) la regla del botón de la intro anima solo `box-shadow` (no hay `opacity` ni `transform` en `@keyframes intro-btn-glow`); (3) se quita "full screen" (`position: fixed; inset: 0`) y se pasa a "mapa acotado": sin `position: fixed` en `[data-screen="final"] .city-wrap`, SVG `height: 100%` + `max-width: 100%`, sin `slice`, `.city` con `overflow: hidden`; (4) el panel: sin `position: fixed` y sin la regla `:has(.offline-notice.is-visible)`; (5) "no visible text" sigue (sin `<text>` en el `#city` del HTML) | RF-79, RF-87, RF-98 a RF-102 |
+| tests/markup.test.js | **Nuevo**: ninguna coordenada de calles, manzanas, naturaleza, relleno o coches fuera de 0-400 × 0-300; `clipPath#map-clip` y `.city__border`; 16 `data-filler` (en 15-25), cada uno con `.shadow`, `.filler__roof` y `.filler__face`; todas las `.shadow` con `translate(2.5 3)`; ≥ 2 `data-green`, ≥ 1 `data-water`, ≥ 12 `.tree`; cada árbol dentro de una manzana sin sitio ni relleno debajo; cada `.block` de `SITE_LAYOUT` existe en el HTML; `.city__labels` no está en el HTML y `city.js` crea `data-site-label`; `.site-label` con `opacity: 0` y `transition` ≤ 400 ms, y encendido solo con `.is-lit`; 4 `.car` con `data-axis`, cada uno sobre una calle de su eje, con `@keyframes car-*` que solo usan `translateX` o `translateY` según su eje; los bucles del final cuelgan de `[data-final-live]` y `[data-all-lit]`; sin `final-car` ni `--car-from`; sin `.screen { animation` ni `screen-in`; `main.js` importa `planTransition` y `gateAllows` y llama a `commit()` justo después de `update(result.state)` en `onNext` | RF-70, RF-105, RF-106, RF-109 a RF-117 |
+| tests/markup.test.js | **Se mantienen**: "toda animación `infinite` dura ≥ 1 s" (ahora cubre también los bucles del final, RF-117) y "reduced motion stops every animation" (RF-87, RF-118) | RF-86, RF-117, RF-118 |
+
+Fuera de `node --test`, validación con el MCP Chrome DevTools a 375×667 y 320×568, con Supabase bloqueado por initScript y el movimiento reducido simulado como en T16/T18:
+- entrada de la intro en orden y ≤ 2 s (`getAnimations()` con `startTime` y `effect.getTiming()`), clic a los 300 ms → selector;
+- transiciones medidas con `getAnimations()` y doble clic en "Next" → avanza 1;
+- `getBBox()` de iconos y rótulos sin solapes con los 10 encendidos;
+- final: mapa y panel sin solaparse y bucles vivos a los 20 s;
+- RNF-12 con §15.8;
+- consola limpia.
+
+### 15.10 Cobertura del cambio
+| Parte | RF / RNF |
+|---|---|
+| intro-entry.js + grupos `plato__enter` + CSS de entrada y halo del botón | RF-7, RF-8, RF-87, RF-98 a RF-102 |
+| transition.js + main.js (`update`/`act`/fundidos WAAPI) + CSS sin `screen-in` | RF-103 a RF-108, RF-74, RNF-4 |
+| city-view.js (`holdFullLight`) | RF-73, RF-105 |
+| SVG de la ciudad (mapa acotado, borde, sombras, tejados, naturaleza, 16 rellenos, iconos) + CSS | RF-69, RF-70, RF-71, RF-109 a RF-111, RNF-4 |
+| site-labels.js + city.js (`mountCityLabels`, `paintCity`) + CSS de rótulos | RF-71, RF-75, RF-77, RF-112, RF-113 |
+| CSS del final (columna flex, mapa centrado, panel en el flujo) | RF-79 |
+| final-view.js (`liveDelays`) + screens/final.js (`data-final-live`) + bucles CSS | RF-53, RF-54, RF-56, RF-114 a RF-118 |
+| Bloque de movimiento reducido (sin cambios) + WAAPI con 200 ms | RF-77, RF-87, RF-108, RF-118, RNF-2 |
+| Medición con PerformanceObserver y traza | RNF-12 |
+
+### 15.11 Al cerrar el cambio
+- MEMORY.md:
+  - intro con entrada y bucle;
+  - transiciones WAAPI con puerta de tiempo;
+  - mapa acotado con 16 rellenos, 2 zonas verdes y estanque;
+  - rótulos generados desde `SITE_LAYOUT`;
+  - bucles del final colgados de `data-final-live`;
+  - error a evitar: dos animaciones CSS en el mismo elemento se pisan (la entrada y la ola animan el contenedor o el hijo, nunca el mismo elemento que el bucle).
+- AGENTS.md: sin cambios de stack. Se puede proponer una regla permanente: "animar solo `opacity`/`transform`; los bucles con ciclos ≥ 1 s".
 

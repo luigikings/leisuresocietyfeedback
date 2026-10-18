@@ -3,7 +3,7 @@ Encuesta web para móvil del proyecto universitario "Events and Leisure" (socied
 El público entra por QR, responde 10 preguntas y una ciudad nocturna se ilumina; los estudiantes ven los resultados en /admin.
 
 ## Stack y estructura
-- HTML, CSS y JavaScript sin framework ni build. Gráficos en SVG y animaciones en CSS.
+- HTML, CSS y JavaScript sin framework ni build. Gráficos en SVG; animaciones en CSS y fundidos entre pantallas con Web Animations API.
 - Supabase (plan gratuito) como base de datos y Auth para /admin. El navegador habla directamente con Supabase.
 - Hosting: GitHub Pages (repo público `luigikings/leisuresocietyfeedback`).
 - Estructura: `index.html` (encuesta) · `css/` · `js/config.js` (URL y clave publicable) · `js/content.js` (preguntas, países, `CONTENT.version`) · `js/lib/` (lógica pura, testeada) · `js/app/` (DOM, red, pantallas en `screens/`) · `assets/` (banderas SVG e icono de Other; los iconos de la ciudad van en línea en `index.html`) · `supabase/migrations/` (SQL) · `scripts/` (`serve.mjs`, `check-db.mjs`) · `tests/` · `docs/supabase.md` (puesta en marcha de Supabase).

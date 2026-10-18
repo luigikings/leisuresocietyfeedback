@@ -1,11 +1,15 @@
-// Final screen (RF-53 to RF-56, RF-73, RF-74, RF-77, RF-79): the city goes full screen and the light wave
-// crosses it, lighting the filler buildings, windows, lamps and streets as it passes (each one delayed by its
-// --fx position); then cars drive along the avenues, confetti falls, the flags (no "Other") spin and join with
-// a flash, and "Leisure for Society" + "Thank you" appear on a translucent panel. The timeline and positions
-// come from js/lib/final-view.js; the animations are CSS and only run while the root has data-final="play".
+// Final screen (RF-53 to RF-56, RF-73, RF-74, RF-77, RF-79): the whole bounded map grows, centred, and the
+// light wave crosses it, lighting the filler buildings, windows, lamps and streets as it passes (each one delayed
+// by its --fx position); then cars drive along the avenues, confetti falls, the flags (no "Other") spin and join
+// with a flash, and "Leisure for Society" + "Thank you" appear on a translucent panel under the map. The timeline
+// and positions come from js/lib/final-view.js; the arrival animations are CSS and only run while the root has
+// data-final="play".
 // The base styles are the last state, so data-final="done" (end, reload, reduced motion) shows it directly.
+// The living city (RF-114 to RF-117) hangs on data-final-live, set in show() for the whole final and never
+// changed by play -> done, so its loops never restart; liveDelays() makes them wait for the cars and the wave
+// on the arrival and start at once on a reload (RF-56). Reduced motion stops them in the CSS (RF-118).
 // No team photo and no replay button (RF-55).
-import { finalFlags, flagLayout, finalCssVars, finalEndMs, confettiPieces, FLAG_WIDTH, FLAG_HEIGHT } from "../../lib/final-view.js";
+import { finalFlags, flagLayout, finalCssVars, finalEndMs, confettiPieces, liveDelays, FLAG_WIDTH, FLAG_HEIGHT } from "../../lib/final-view.js";
 
 const CONFETTI_COUNT = 36;
 
@@ -70,8 +74,13 @@ export function mountFinal(section, { root, countries, reducedMotion, random = M
 
   return {
     show({ animate }) {
-      // Reload of a finished survey (RF-56) or reduced motion (RNF-2): last state, no animation.
-      if (!animate || reducedMotion()) {
+      const arrival = animate && !reducedMotion();
+      const delays = liveDelays({ animate: arrival });
+      root.style.setProperty("--live-cars-delay", delays.cars);
+      root.style.setProperty("--live-delay", delays.city);
+      root.dataset.finalLive = "";
+      // Reload of a finished survey (RF-56) or reduced motion (RNF-2): last state, no arrival.
+      if (!arrival) {
         done();
         return;
       }
@@ -86,6 +95,9 @@ export function mountFinal(section, { root, countries, reducedMotion, random = M
       section.removeEventListener("animationend", onEnd);
       confetti.replaceChildren();
       delete root.dataset.final;
+      delete root.dataset.finalLive;
+      root.style.removeProperty("--live-cars-delay");
+      root.style.removeProperty("--live-delay");
     },
   };
 }
