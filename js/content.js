@@ -1,19 +1,19 @@
 // CONTENT DATA — the only file to edit to change countries or questions.
 // Bump `version` whenever countries or questions change (old progress is discarded, RF-52).
 // Flags: assets/flags/<iso code in lowercase>.svg. Option types: "normal" | "open-required" | "open-optional".
-// Countries are TEST data until the real list arrives.
+// Real countries of the event (2026-10-18); more can be added later (bump `version`).
 
 export const CONTENT = {
-  version: "2026-10-test-2",
+  version: "2026-10-live-1",
 
   // Shown in this order (RF-3, RF-10); "Other" is added last by the interface.
   countries: [
     { code: "NL", name: "Netherlands" },
-    { code: "DE", name: "Germany" },
+    { code: "HU", name: "Hungary" },
+    { code: "VE", name: "Venezuela" },
     { code: "IT", name: "Italy" },
+    { code: "RO", name: "Romania" },
     { code: "PL", name: "Poland" },
-    { code: "JP", name: "Japan" },
-    { code: "NG", name: "Nigeria" },
   ],
 
   questions: [

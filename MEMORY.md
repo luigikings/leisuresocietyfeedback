@@ -2,10 +2,10 @@
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no aporte.
 
 ## Estado actual
-- Spec 001 (encuesta pública) implementada (16/10, con tres cambios validados hasta el 18/10). Spec 002 (panel /admin) implementada (18/10, VEREDICTO: APROBADO) con 3 pruebas del usuario pendientes (ver "Antes del evento"). Presentación: 28/10/2026 por la noche.
+- Spec 001 (encuesta pública) implementada (16/10, con tres cambios validados hasta el 18/10). Spec 002 (panel /admin) implementada (18/10, VEREDICTO: APROBADO); sus 3 pruebas manuales se omitieron por decisión del usuario (ver "Antes del evento"). Presentación: 28/10/2026 por la noche.
 - GitHub Pages ACTIVADO: encuesta en https://luigikings.github.io/leisuresocietyfeedback/ y panel en …/admin/.
 - Supabase: proyecto ref `xbsrdugimqpgxmlwbpxo` (Frankfurt, plan Free). Registro público y "Automatically expose new tables" desactivados. MCP de Supabase sin configurar (SQL a mano en el SQL Editor).
-- Contenido: las 10 preguntas reales ya están; los 6 países son aún de prueba (DE, IT, JP, NG, NL, PL). `CONTENT.version` = "2026-10-test-2". Al recibir los reales, subirla (descarta progreso antiguo, RF-52; el panel solo cuenta la versión actual).
+- Contenido real: 10 preguntas y 6 países (18/10, en orden NL, HU, VE, IT, RO, PL + "Other"). `CONTENT.version` = "2026-10-live-1". Si se añade un país, subirla otra vez (descarta progreso, RF-52; el panel solo cuenta la versión actual) y añadir su bandera SVG 3:2 en `assets/flags/`.
 
 ## Decisiones (y por qué)
 - Flujo: intro → país → ciudad apagada → 10 preguntas → final ("Leisure for Society"). Quien ya terminó ve directamente el final: evita duplicados.
@@ -21,9 +21,9 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 - `.retry(false)` en las consultas de supabase-js: reintentaba solo, contra RF-21. Lista: 40 entradas al momento y el resto en bloques (RNF-8).
 
 ## Antes del evento (28/10)
-- Pruebas del usuario pendientes de la 002 (en Pages): (1) abrir los dos CSV en el Excel en inglés (RF-59/RNF-11); (2) RF-12 quitando y volviendo a añadir la cuenta en admins (guía §4.4); (3) dos navegadores: "Log out" local no cierra el otro y la revocación de sesiones deja al otro sin datos (RF-15/RF-16, guía §4.5 pasos 1-2).
+- 18/10: el usuario decidió saltarse las 3 pruebas manuales de la 002 ("vamos a pasarnos las pruebas"): CSV en Excel, RF-12 y "Log out"/revocación con dos navegadores quedan sin verificar a mano.
 - Borrar filas de prueba (guía paso 6): `dbcheck…`, las de content_version "2026-10-test-1"/"2026-10-test-2" y la de "T19 test row - delete" (Germany, 16 Oct).
-- Poner los países reales y subir `CONTENT.version`. Generar el QR con la URL de Pages y probarlo en un móvil real.
+- Generar el QR con la URL de Pages y probarlo en un móvil real.
 - Supabase sin pausar: el día anterior abrir el dashboard, `node scripts/check-db.mjs` y después el paso 6.
 - Pruebas a mano de la 001: atrás físico en Android real (RF-33/34); `prefers-reduced-motion: reduce` real; bloquear `*.woff2`; tras volver la red queda una sola fila.
 

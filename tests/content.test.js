@@ -47,24 +47,24 @@ test("the real content is valid (no errors), including flag files", () => {
   assert.deepEqual(validateContent(CONTENT, SITE_IDS, { hasFlag }), []);
 });
 
-test("content version is the test version", () => {
-  assert.equal(CONTENT.version, "2026-10-test-2");
+test("content version is the live version of the real countries (RF-52)", () => {
+  assert.equal(CONTENT.version, "2026-10-live-1");
 });
 
-test("the countries are exactly NL, DE, IT, PL, JP, NG in that order (RF-3)", () => {
+test("the countries are exactly NL, HU, VE, IT, RO, PL in that order (RF-3)", () => {
   assert.deepEqual(CONTENT.countries, [
     { code: "NL", name: "Netherlands" },
-    { code: "DE", name: "Germany" },
+    { code: "HU", name: "Hungary" },
+    { code: "VE", name: "Venezuela" },
     { code: "IT", name: "Italy" },
+    { code: "RO", name: "Romania" },
     { code: "PL", name: "Poland" },
-    { code: "JP", name: "Japan" },
-    { code: "NG", name: "Nigeria" },
   ]);
 });
 
 test("only the flags of the 6 countries remain in assets/flags", () => {
   const files = fs.readdirSync(path.join(ROOT, "assets/flags")).filter((f) => f.endsWith(".svg")).sort();
-  assert.deepEqual(files, ["de.svg", "it.svg", "jp.svg", "ng.svg", "nl.svg", "pl.svg"]);
+  assert.deepEqual(files, ["hu.svg", "it.svg", "nl.svg", "pl.svg", "ro.svg", "ve.svg"]);
 });
 
 test("every country has an SVG flag served by the site", () => {

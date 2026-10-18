@@ -60,7 +60,7 @@ test("finalFlags lists the content countries in order, with flag path and name a
   const flags = finalFlags(CONTENT.countries);
   assert.equal(flags.length, CONTENT.countries.length);
   assert.deepEqual(flags[0], { code: "NL", name: "Netherlands", src: "assets/flags/nl.svg" });
-  assert.equal(flags.find((f) => f.code === "NG").name, "Nigeria");
+  assert.equal(flags.find((f) => f.code === "VE").name, "Venezuela");
   const withOther = [...CONTENT.countries, { code: OTHER_CODE, name: "Other" }];
   assert.ok(!finalFlags(withOther).some((f) => f.code === OTHER_CODE));
   assert.deepEqual(finalFlags([]), []);

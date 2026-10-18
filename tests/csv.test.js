@@ -214,7 +214,7 @@ test("responsesCsv: comments protected against formulas, no participant id anywh
 
 test("responsesCsv: same rows and order as the visible list, with filters (RF-55)", () => {
   const a = row({ country: "NL", updated: "2026-10-18T19:00:00.000000+00:00", answers: { q2: ["A", "Great music"] } });
-  const b = row({ country: "DE", updated: "2026-10-18T20:00:00.000000+00:00", answers: { q2: ["A", "music!"] } });
+  const b = row({ country: "HU", updated: "2026-10-18T20:00:00.000000+00:00", answers: { q2: ["A", "music!"] } });
   const c = row({ country: "NL", updated: "2026-10-18T21:00:00.000000+00:00", answers: { q2: ["A", "Music"] } });
   const d = row({ country: "NL", updated: "2026-10-18T22:00:00.000000+00:00", answers: { q2: ["A", "food"] } });
   const filtered = applyCommonFilters([a, b, c, d], { country: "NL", status: "all" });

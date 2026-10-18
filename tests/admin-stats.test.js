@@ -69,7 +69,7 @@ test("percent: halves up without floating point drift for every n/d up to 400", 
 test("splitByVersion keeps the current version and counts the others over all loaded rows", () => {
   const rows = [
     row(),
-    row({ version: "2026-10-test-1", country: "DE" }),
+    row({ version: "2026-10-test-1", country: "HU" }),
     row({ status: "in_progress", country: "IT" }),
     row({ version: "old", status: "in_progress" }),
     row({ version: "old" }),
@@ -80,7 +80,7 @@ test("splitByVersion keeps the current version and counts the others over all lo
 });
 
 test("splitByVersion: hiddenCount does not depend on the filters (counted before them)", () => {
-  const rows = [row({ version: "old", country: "DE" }), row({ version: "old", country: "IT", status: "in_progress" })];
+  const rows = [row({ version: "old", country: "HU" }), row({ version: "old", country: "IT", status: "in_progress" })];
   const { current, hiddenCount } = splitByVersion(rows, V);
   assert.equal(hiddenCount, 2);
   assert.equal(applyCommonFilters(current, { country: "NL", status: "completed" }).length, 0);
@@ -136,7 +136,7 @@ test("STATUS_CHOICES: All, Completed, In progress", () => {
 // ---- RF-24, RF-25: common filters ----
 
 test("applyCommonFilters: no filters (defaults) keeps every row, in order", () => {
-  const rows = [row(), row({ country: "DE", status: "in_progress" }), row({ country: "OTHER" })];
+  const rows = [row(), row({ country: "HU", status: "in_progress" }), row({ country: "OTHER" })];
   assert.deepEqual(applyCommonFilters(rows), rows);
   assert.deepEqual(applyCommonFilters(rows, INITIAL_FILTERS), rows);
   assert.deepEqual(applyCommonFilters(rows, {}), rows);
@@ -145,7 +145,7 @@ test("applyCommonFilters: no filters (defaults) keeps every row, in order", () =
 test("applyCommonFilters: by country, by status and both at once", () => {
   const a = row({ country: "NL", status: "completed" });
   const b = row({ country: "NL", status: "in_progress" });
-  const c = row({ country: "DE", status: "completed" });
+  const c = row({ country: "HU", status: "completed" });
   const d = row({ country: "OTHER", status: "in_progress" });
   const rows = [a, b, c, d];
   assert.deepEqual(applyCommonFilters(rows, { country: "NL" }), [a, b]);
@@ -153,13 +153,13 @@ test("applyCommonFilters: by country, by status and both at once", () => {
   assert.deepEqual(applyCommonFilters(rows, { status: "in_progress" }), [b, d]);
   assert.deepEqual(applyCommonFilters(rows, { country: "NL", status: "in_progress" }), [b]);
   assert.deepEqual(applyCommonFilters(rows, { country: "OTHER", status: "all" }), [d]);
-  assert.deepEqual(applyCommonFilters(rows, { country: "JP" }), []);
+  assert.deepEqual(applyCommonFilters(rows, { country: "RO" }), []);
 });
 
 test("applyCommonFilters does not mutate its input", () => {
-  const rows = [row(), row({ country: "DE" })];
+  const rows = [row(), row({ country: "HU" })];
   const copy = structuredClone(rows);
-  applyCommonFilters(rows, { country: "DE" });
+  applyCommonFilters(rows, { country: "HU" });
   assert.deepEqual(rows, copy);
 });
 
@@ -359,25 +359,25 @@ test("countryFlag: content flag, Other icon, none for unknown codes (site-relati
 });
 
 test("byCountry: only countries with rows, count and % over the filtered set", () => {
-  const rows = [row({ country: "DE" }), row({ country: "DE" }), row({ country: "NL" })];
+  const rows = [row({ country: "HU" }), row({ country: "HU" }), row({ country: "NL" })];
   assert.deepEqual(byCountry(rows, CONTENT), [
-    { code: "DE", name: "Germany", flag: "assets/flags/de.svg", count: 2, percent: 67 },
+    { code: "HU", name: "Hungary", flag: "assets/flags/hu.svg", count: 2, percent: 67 },
     { code: "NL", name: "Netherlands", flag: "assets/flags/nl.svg", count: 1, percent: 33 },
   ]);
   assert.deepEqual(byCountry([], CONTENT), []);
 });
 
 test("byCountry: most rows first; ties → content order, then Other, then unknown codes A-Z", () => {
-  const codes = ["ZZ", "OTHER", "JP", "BR", "NL", "DE", "DE", "DE", "IT", "IT", "IT"];
+  const codes = ["ZZ", "OTHER", "RO", "BR", "NL", "HU", "HU", "HU", "IT", "IT", "IT"];
   const rows = codes.map((country) => row({ country }));
   const out = byCountry(rows, CONTENT);
   assert.deepEqual(
     out.map((c) => [c.code, c.count]),
     [
-      ["DE", 3],
+      ["HU", 3],
       ["IT", 3],
       ["NL", 1],
-      ["JP", 1],
+      ["RO", 1],
       ["OTHER", 1],
       ["BR", 1],
       ["ZZ", 1],
@@ -390,7 +390,7 @@ test("byCountry: most rows first; ties → content order, then Other, then unkno
 });
 
 test("byCountry: percentages are rounded and not forced to sum 100", () => {
-  const rows = ["NL", "DE", "IT"].map((country) => row({ country }));
+  const rows = ["NL", "HU", "IT"].map((country) => row({ country }));
   assert.deepEqual(
     byCountry(rows, CONTENT).map((c) => c.percent),
     [33, 33, 33],
@@ -403,7 +403,7 @@ test("pipeline: other versions hidden, filters applied to every number", () => {
   const rows = [
     row({ country: "NL", answers: { q1: ["A"] } }),
     row({ country: "NL", status: "in_progress", answers: { q1: ["B"] } }),
-    row({ country: "DE", answers: { q1: ["B"] } }),
+    row({ country: "HU", answers: { q1: ["B"] } }),
     row({ version: "old", country: "NL", answers: { q1: ["A"] } }),
   ];
   const { current, hiddenCount } = splitByVersion(rows, V);
