@@ -2,7 +2,7 @@
 
 Estado: implementada (2026-10-18: cambio 'estilo de la referencia y ciudad viva' implementado y validado, tareas T29-T38, VEREDICTO: APROBADO)
 
-> Nota de cierre: la creación de los 4 admins (parte de RF-66) queda aplazada a la spec 002 por decisión del usuario. La lista de admins y la política de lectura ya existen.
+> Nota de cierre: la creación de los admins (parte de RF-66) quedó aplazada a la spec 002 por decisión del usuario. La lista de admins y la política de lectura ya existen. *(Actualizado 2026-10-18: la spec 002 sustituye "4 admins, uno por estudiante" por una sola cuenta compartida "admin", ya creada y en la lista de admins; ver `specs/002-admin/spec.md`.)*
 
 ## Historial de cambios
 - 2026-10-16 — Implementada y validada (VEREDICTO: APROBADO).
@@ -62,7 +62,7 @@ El proyecto universitario "Events and Leisure" necesita recoger la opinión del 
 - **Cola local**: el estado completo pendiente de confirmar, conservado en el dispositivo hasta que la base de datos lo acepta, lo ignora por antiguo o lo rechaza de forma definitiva.
 - **Fallo pasajero**: sin conexión, tiempo de espera agotado (10 s) o error del servidor (5xx). **Rechazo definitivo**: cualquier otra respuesta de error de la base de datos (validación, ID no válido, país o versión distintos, fila ya terminada).
 - **Operación de guardado**: la única vía de escritura del público en la base de datos; recibe el ID y el estado completo, y no devuelve datos de ninguna fila.
-- **Admin**: usuario autenticado que figura en la lista cerrada de admins guardada en la base de datos (los 4 estudiantes).
+- **Admin**: usuario autenticado que figura en la lista cerrada de admins guardada en la base de datos. *(Modificado 2026-10-18 por la spec 002: antes, "los 4 estudiantes", con una cuenta cada uno; ahora la lista contiene solo la cuenta compartida "admin", que usan los 4 estudiantes.)*
 - **Movimiento reducido**: la preferencia del sistema operativo del usuario de reducir las animaciones.
 - **Entrada de la intro**: animación que se reproduce una sola vez al mostrarse la intro y hace aparecer de forma escalonada los elementos del plató, los textos y el botón. Después de ella solo queda el bucle de RF-8. *(Añadida 2026-10-17.)*
 - **Transición de pantalla**: cambio animado entre dos pantallas de la encuesta (intro, selector, pregunta, final) o entre dos preguntas: un fundido de salida de lo que se va seguido de un fundido de entrada de lo que llega. *(Añadida 2026-10-17.)*

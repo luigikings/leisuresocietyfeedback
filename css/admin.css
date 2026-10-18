@@ -1,0 +1,764 @@
+/* Leisure City · Admin — results panel (spec 002). Mobile-first (375 px, usable 320-430 px), also 1280 px.
+   Own sheet with the survey's fonts and palette copied (plan §4.6): survey.css is not touched.
+   Readability first (RNF-5): no glows, gradients or looping animations. Contrast: --text on --night 17.3:1,
+   --muted on --night 8.0:1, --night on --gold 11.1:1, --error on --night 8.6:1 and on --royal-deep 8.0:1.
+   The only animation is the 0 s reveal of the "couldn't load" message (RF-66): it moves nothing. */
+
+@font-face {
+  font-family: "Big Shoulders Display";
+  font-style: normal;
+  font-weight: 800;
+  font-display: optional;
+  src: url("../assets/fonts/big-shoulders-display-latin-800.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 400;
+  font-display: optional;
+  src: url("../assets/fonts/figtree-latin-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 600;
+  font-display: optional;
+  src: url("../assets/fonts/figtree-latin-600.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 700;
+  font-display: optional;
+  src: url("../assets/fonts/figtree-latin-700.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  --night: #060a22;      /* background */
+  --royal-deep: #0b1138; /* fields and cards */
+  --gold: #f6b93b;       /* main accent: buttons, focus */
+  --text: #eef0ff;
+  --muted: #9aa3d6;      /* secondary text and field borders */
+  --line: #2a3787;       /* thin decorative lines */
+  --error: #ff8a8a;      /* error and session messages */
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --display: "Big Shoulders Display", var(--sans); /* brand and titles only */
+  --body: "Figtree", var(--sans);
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--night);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.admin {
+  max-width: 1200px; /* RNF-4 */
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* Headings that only receive focus from the script (tabindex="-1") to keep the reading place: no ring. */
+[tabindex="-1"]:focus {
+  outline: none;
+}
+
+.brand {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.75rem;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* --- Login ------------------------------------------------------------------------------------------ */
+.login {
+  max-width: 400px;
+  margin: 8vh auto 0;
+}
+
+.login__form {
+  margin-top: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field__label {
+  font-weight: 600;
+}
+
+.field__input {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 2px solid var(--muted);
+  border-radius: 8px;
+  background: var(--royal-deep);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem; /* 16 px: no zoom on focus in iOS */
+}
+
+.field__input:focus-visible {
+  border-color: var(--gold);
+}
+
+.message {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.message:empty {
+  display: none;
+}
+
+#login-message,
+#panel-message {
+  color: var(--error);
+  font-weight: 600;
+}
+
+/* RF-66: hidden at first; if main.js hasn't removed it after 8 s, it appears (no movement). */
+.boot-fail {
+  margin-top: 16px;
+  color: var(--error);
+  font-weight: 600;
+  visibility: hidden;
+  animation: boot-fail-show 0s 8s forwards;
+}
+
+@keyframes boot-fail-show {
+  to { visibility: visible; }
+}
+
+noscript .message {
+  margin-top: 16px;
+  color: var(--error);
+  font-weight: 600;
+}
+
+/* --- Buttons ---------------------------------------------------------------------------------------- */
+.button {
+  min-height: 48px;
+  min-width: 44px;
+  padding: 10px 20px;
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  background: var(--gold);
+  color: var(--night);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.button--ghost {
+  background: transparent;
+  color: var(--gold);
+}
+
+/* --- Panel ------------------------------------------------------------------------------------------ */
+.panel__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.panel__header .brand {
+  font-size: 1.5rem;
+}
+
+.panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.panel__status {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.panel__status:has(> .message:empty):has(> .button[hidden]) {
+  display: none;
+}
+
+.panel__content {
+  margin-top: 16px;
+}
+
+.button--small {
+  min-height: 44px; /* RNF-4: touch target */
+  padding: 8px 16px;
+}
+
+/* --- Header: "Last updated" and "Refresh" (RF-19, RF-20) ------------------------------------------- */
+.panel__updated {
+  flex-basis: 100%; /* own line on the phone; Refresh and Log out side by side below */
+  margin: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.panel__loading {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* --- Notice, filters and tabs (RF-22 to RF-27) ------------------------------------------------------ */
+.notice {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-left: 4px solid var(--gold);
+  background: var(--royal-deep);
+  overflow-wrap: anywhere;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+
+.filters__count {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-weight: 700;
+}
+
+select.field__input {
+  /* native arrow (color-scheme: dark): no image, no gradient (RNF-5) */
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.tabs {
+  display: flex;
+  margin-top: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tab {
+  flex: 1 1 0;
+  min-height: 48px;
+  padding: 10px 16px;
+  border: 0;
+  border-bottom: 4px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tab[aria-selected="true"] {
+  border-bottom-color: var(--gold);
+  color: var(--text);
+}
+
+.tab:focus-visible {
+  outline-offset: -3px;
+}
+
+.tabpanel {
+  padding-top: 16px;
+}
+
+.tabpanel:focus-visible {
+  outline-offset: 4px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  max-width: 760px;
+  margin-bottom: 16px;
+}
+
+/* --- Statistics (RF-29 to RF-38, RF-70; RNF-4: blocks at most 760 px) ------------------------------- */
+.stats {
+  display: grid;
+  gap: 16px;
+  max-width: 760px;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.summary__item {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--royal-deep);
+}
+
+.summary__label {
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.summary__value {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-block {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--royal-deep);
+}
+
+.stat-block__title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.stat-block__number {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: 0.02em;
+  color: var(--gold);
+}
+
+.stat-block--countries .stat-block__title {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.stat-block__meta,
+.stat-block__comments {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.stat-block__empty {
+  margin: 12px 0 0;
+  font-weight: 600;
+}
+
+.stat-block__warning {
+  margin: 12px 0 0;
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.stat-block__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-top: 12px;
+}
+
+.stat-block__foot .stat-block__comments {
+  margin: 0;
+}
+
+.bars {
+  display: grid;
+  gap: 14px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bar-row {
+  display: grid;
+  gap: 4px;
+}
+
+.bar-row__label {
+  overflow-wrap: anywhere;
+}
+
+.bar-row__label--country {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bar-row__flag {
+  flex: none;
+  width: 28px;
+  height: 20px;
+  border-radius: 2px;
+  object-fit: cover;
+}
+
+.bar-row__line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Bar: gold fill on a dark track with a visible edge, so 0 % still shows an empty track (RNF-5). */
+.bar {
+  flex: 1 1 auto;
+  height: 16px;
+  border: 1px solid var(--muted);
+  border-radius: 4px;
+  background: var(--night);
+  overflow: hidden;
+}
+
+.bar__fill {
+  height: 100%;
+  width: 0;
+  background: var(--gold);
+}
+
+.bar-row__value {
+  flex: none;
+  min-width: 6.5em;
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Responses (RF-39 to RF-48, RF-63, RF-64; RNF-4, RNF-5) ----------------------------------------- */
+.list-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+
+.list-controls__search {
+  grid-column: 1 / -1;
+}
+
+.list-count {
+  margin: 16px 0 0;
+  font-weight: 700;
+}
+
+.list-empty {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.list-empty__text {
+  margin: 0;
+  font-weight: 600;
+}
+
+.responses {
+  margin-top: 12px;
+}
+
+.country {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.flag {
+  flex: none;
+  width: 28px;
+  height: 20px;
+  border-radius: 2px;
+  object-fit: cover;
+}
+
+.answer {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.answer--none {
+  color: var(--muted);
+}
+
+/* Comments: plain text with its line breaks; long words wrap instead of scrolling the page (RF-47, RNF-4). */
+.comment {
+  display: block;
+  margin-top: 4px;
+  padding-left: 10px;
+  border-left: 3px solid var(--gold);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Table (≥ 768 px, RF-42): horizontal scroll only inside its box, first column fixed. */
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+/* Fixed layout with set column widths: the browser doesn't measure 1000 rows to size the columns (RNF-8). */
+.responses-table {
+  table-layout: fixed;
+  width: calc(170px + 170px + 170px + 130px + 110px + 10 * 240px);
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem; /* 14 px, the minimum of RNF-5 for table cells */
+  line-height: 1.45;
+}
+
+.responses-table th,
+.responses-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.responses-table thead th {
+  background: var(--royal-deep);
+  color: var(--muted);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.responses-table tbody th {
+  font-weight: 600;
+}
+
+.responses-table .sticky {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--royal-deep);
+  border-right: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.responses-table .nowrap {
+  white-space: nowrap;
+}
+
+.responses-table .col-started,
+.responses-table .col-updated,
+.responses-table .col-country {
+  width: 170px;
+}
+
+.responses-table .col-status {
+  width: 130px;
+}
+
+.responses-table .col-answered {
+  width: 110px;
+}
+
+.responses-table .col-q {
+  width: 240px;
+}
+
+.responses-table .country {
+  display: flex;
+}
+
+/* Cards (< 768 px, RF-63): native <details>, which announces open/closed (RNF-7). */
+.cards {
+  display: grid;
+  gap: 12px;
+}
+
+.card {
+  /* off-screen cards skip layout and paint until scrolled near (RNF-8) */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 150px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--royal-deep);
+}
+
+.card__summary {
+  position: relative;
+  display: block;
+  min-height: 44px;
+  padding: 14px 48px 14px 16px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.card__summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Chevron: down when closed, up when open; it turns at once (RNF-6). */
+.card__summary::after {
+  content: "";
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 10px;
+  height: 10px;
+  border-right: 3px solid var(--gold);
+  border-bottom: 3px solid var(--gold);
+  transform: rotate(45deg);
+}
+
+.card[open] > .card__summary::after {
+  top: 26px;
+  transform: rotate(-135deg);
+}
+
+.card__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  font-weight: 700;
+}
+
+.badge {
+  padding: 1px 10px;
+  border: 1px solid var(--muted);
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.card__meta {
+  display: block;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.card__answered {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* RF-64: the comments that match, visible with the card closed. */
+.card__matches {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.match {
+  display: block;
+}
+
+.match__q,
+.card__q {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.card__answers {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.card__answer dd {
+  margin: 2px 0 0;
+}
+
+@media (min-width: 768px) {
+  .list-controls {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .list-controls .field {
+    min-width: 220px;
+  }
+
+  .list-controls__search {
+    flex: 1 1 320px;
+    max-width: 480px;
+  }
+
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .filters__field {
+    min-width: 220px;
+  }
+
+  .filters__count {
+    padding-bottom: 12px;
+  }
+
+  .tabs {
+    max-width: 480px;
+  }
+
+  .panel__updated {
+    flex-basis: auto;
+  }
+
+  .stat-block {
+    padding: 20px 24px;
+  }
+}

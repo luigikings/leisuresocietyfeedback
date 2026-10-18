@@ -225,7 +225,7 @@ update set todas las qN, status, seq = p_seq, updated_at = now()          (RF-39
 1. Crear el proyecto gratuito en Supabase y pasar la Project URL y la clave anon/publishable (nunca la service_role).
 2. Pegar `001_survey.sql` en el SQL Editor y ejecutarlo. Alternativa: aplicarlo con el MCP de Supabase si el usuario lo configura.
 3. Authentication → Sign In / Providers: desactivar "Allow new users to sign up" (RF-67).
-4. Authentication → Users → "Add user" para los 4 estudiantes y luego `insert into public.admins(user_id,label) values ('<uuid>','<name>');` (RF-66; el login se prueba en la 002).
+4. Authentication → Users → "Add user" para los 4 estudiantes y luego `insert into public.admins(user_id,label) values ('<uuid>','<name>');` (RF-66; el login se prueba en la 002). *(Sustituido por la spec 002: una sola cuenta compartida "admin"; procedimiento en `docs/supabase.md`, paso 4.)*
 5. Antes del evento: `delete from public.responses;`, o `… where content_version <> '<versión real>'` (RNF-11).
 
 ## 7. Configuración del frontend sin secretos — RF-68

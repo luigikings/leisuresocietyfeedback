@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <!-- Content policy (RNF-15): own scripts and the pinned supabase-js from jsDelivr only; connections only to
+       the project's Supabase; the form can't be submitted anywhere (RF-65). frame-ancestors doesn't work in a
+       <meta> (accepted risk of the spec). No inline script or style on this page: the policy would block them. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; connect-src https://xbsrdugimqpgxmlwbpxo.supabase.co; img-src 'self' data:; style-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow"><!-- RF-2: no robots file on this hosting -->
+  <meta name="theme-color" content="#060a22">
+  <title>Leisure City · Admin</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../css/admin.css">
+  <script type="module" src="../js/app/admin/main.js"></script>
+</head>
+<body>
+  <main class="admin">
+
+    <!-- LOGIN (RF-3 to RF-10, RF-65 to RF-68). Fail-safe on three levels (proposal 26): the inputs have no
+         name (a native submit would carry nothing), form-action 'none' blocks any submit navigation, and
+         "Log in" stays disabled until main.js has started. -->
+    <section id="login-view" class="login" aria-labelledby="login-title">
+      <h1 id="login-title" class="brand" aria-label="Leisure City · Admin">Leisure City · Admin</h1>
+      <form id="login" class="login__form" novalidate>
+        <div class="field">
+          <label class="field__label" for="username">Username</label>
+          <input class="field__input" id="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false">
+        </div>
+        <div class="field">
+          <label class="field__label" for="password">Password</label>
+          <input class="field__input" id="password" type="password" autocomplete="current-password">
+        </div>
+        <p id="login-message" class="message" role="alert"></p>
+        <button class="button" id="login-button" type="submit" disabled>Log in</button>
+      </form>
+      <!-- RF-66: a module that can't load can't report it, so the text lives here, hidden and shown only by CSS
+           after 8 s; main.js removes it as soon as it starts. -->
+      <p id="boot-fail" class="message boot-fail">The admin page couldn't load. Check your connection and reload the page.</p>
+      <noscript><p class="message">The admin page couldn't load. Check your connection and reload the page.</p></noscript>
+    </section>
+
+    <!-- PANEL (RF-11 to RF-38): only shown after the admin check. #panel-content is shown after the first
+         complete load; T9 fills #responses. -->
+    <section id="panel" class="panel" aria-labelledby="panel-title" hidden>
+      <header class="panel__header">
+        <h1 id="panel-title" class="brand" tabindex="-1" aria-label="Leisure City · Admin">Leisure City · Admin</h1>
+        <div class="panel__actions">
+          <p id="last-updated" class="panel__updated" hidden></p>
+          <button class="button button--ghost" id="refresh" type="button" hidden>Refresh</button>
+          <button class="button button--ghost" id="logout" type="button">Log out</button>
+        </div>
+      </header>
+      <div class="panel__status">
+        <p id="panel-message" class="message" role="alert"></p>
+        <button class="button" id="retry" type="button" hidden>Try again</button>
+      </div>
+      <p id="loading" class="panel__loading" role="status" hidden>Loading responses…</p>
+
+      <div id="panel-content" class="panel__content" hidden>
+        <p id="hidden-versions" class="notice" hidden></p>
+        <div class="filters" role="group" aria-label="Filters">
+          <div class="field filters__field">
+            <label class="field__label" for="filter-country">Country</label>
+            <select class="field__input" id="filter-country"></select>
+          </div>
+          <div class="field filters__field">
+            <label class="field__label" for="filter-status">Status</label>
+            <select class="field__input" id="filter-status"></select>
+          </div>
+          <p id="participants-count" class="filters__count"></p>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Results">
+          <button class="tab" id="tab-statistics" type="button" role="tab" aria-selected="true" aria-controls="panel-statistics">Statistics</button>
+          <button class="tab" id="tab-responses" type="button" role="tab" aria-selected="false" aria-controls="panel-responses" tabindex="-1">Responses</button>
+        </div>
+
+        <section id="panel-statistics" class="tabpanel" role="tabpanel" aria-labelledby="tab-statistics" tabindex="0">
+          <div class="toolbar">
+            <button class="button button--ghost" id="download-statistics" type="button">Download statistics</button>
+          </div>
+          <div id="statistics" class="stats"></div>
+        </section>
+
+        <!-- RESPONSES (RF-39 to RF-48, RF-54, RF-55, RF-61 to RF-64): list-view.js paints #responses as a table
+             (≥ 768 px) or as <details> cards; every user text goes in as text. -->
+        <section id="panel-responses" class="tabpanel" role="tabpanel" aria-labelledby="tab-responses" tabindex="0" hidden>
+          <div class="toolbar">
+            <button class="button button--ghost" id="download-responses" type="button">Download responses</button>
+          </div>
+          <div class="list-controls" role="group" aria-label="Search and order">
+            <div class="field list-controls__search">
+              <label class="field__label" for="list-search">Search comments</label>
+              <input class="field__input" id="list-search" type="search" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="field">
+              <label class="field__label" for="list-comments">Comments</label>
+              <select class="field__input" id="list-comments"></select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="list-order">Order</label>
+              <select class="field__input" id="list-order"></select>
+            </div>
+          </div>
+          <p id="list-count" class="list-count" role="status"></p>
+          <div class="list-empty">
+            <p id="list-empty" class="list-empty__text"></p>
+            <button class="button button--ghost" id="clear-filters" type="button" hidden>Clear filters</button>
+          </div>
+          <div id="responses" class="responses"></div>
+        </section>
+      </div>
+    </section>
+
+  </main>
+</body>
+</html>

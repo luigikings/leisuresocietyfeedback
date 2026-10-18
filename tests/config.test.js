@@ -67,3 +67,9 @@ test("the guard itself detects bad keys", () => {
   assert.notEqual(keyProblem("a.!!!.c"), null);
   assert.notEqual(keyProblem(undefined), null);
 });
+
+test("ADMIN_LOGIN_EMAIL is an internal address on a reserved domain (spec 002, RNF-3)", async () => {
+  const { ADMIN_LOGIN_EMAIL } = await import("../js/config.js");
+  assert.equal(typeof ADMIN_LOGIN_EMAIL, "string");
+  assert.match(ADMIN_LOGIN_EMAIL, /^admin@(?:[a-z0-9-]+\.)+invalid$|^admin@example\.com$/);
+});

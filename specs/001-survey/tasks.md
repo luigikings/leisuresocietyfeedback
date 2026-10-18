@@ -37,7 +37,7 @@ Plan: `specs/001-survey/plan.md`. Tests con `node --test`: primero en rojo, desp
     - [x] (a) crear el proyecto gratuito;
     - [x] (b) ejecutar `001_survey.sql` en el SQL Editor;
     - [x] (c) desactivar "Allow new users to sign up";
-    - [ ] (d) crear los 4 usuarios admin e insertarlos en `public.admins`; **APLAZADO a la spec 002** (decisión del usuario, 16/10/2026): la tabla `admins` existe vacía y protegida (check-db RF-66 en verde); nadie puede leer respuestas hasta entonces, lo cual es correcto para la 001.
+    - [ ] (d) crear los 4 usuarios admin e insertarlos en `public.admins`; **APLAZADO a la spec 002** (decisión del usuario, 16/10/2026): la tabla `admins` existe vacía y protegida (check-db RF-66 en verde); nadie puede leer respuestas hasta entonces, lo cual es correcto para la 001. *(Hecho en la spec 002, T6: en lugar de 4 usuarios, una sola cuenta compartida "admin", ya en `public.admins`.)*
     - [x] (e) pasar la Project URL y la clave anon/publishable (nunca la service_role).
   - Resultado (16/10/2026): `js/config.js` rellenado; `node --test` 158/158 en verde; `node scripts/check-db.mjs` 38/38 PASS. Quedan filas de prueba con `content_version` "dbcheck…": borrarlas antes del evento (`docs/supabase.md`, paso 6).
   - Agente: rellenar `js/config.js` y ejecutar `node --test` (la guarda de config) y `node scripts/check-db.mjs`.

@@ -5,8 +5,8 @@ El público entra por QR, responde 10 preguntas y una ciudad nocturna se ilumina
 ## Stack y estructura
 - HTML, CSS y JavaScript sin framework ni build. Gráficos en SVG; animaciones en CSS y fundidos entre pantallas con Web Animations API.
 - Supabase (plan gratuito) como base de datos y Auth para /admin. El navegador habla directamente con Supabase.
-- Hosting: GitHub Pages (repo público `luigikings/leisuresocietyfeedback`).
-- Estructura: `index.html` (encuesta) · `css/` · `js/config.js` (URL y clave publicable) · `js/content.js` (preguntas, países, `CONTENT.version`) · `js/lib/` (lógica pura, testeada) · `js/app/` (DOM, red, pantallas en `screens/`) · `assets/` (`flags/` banderas SVG, `icons/` icono de Other y `fonts/` woff2 autoalojados + licencias OFL; los iconos de la ciudad van en línea en `index.html`) · `supabase/migrations/` (SQL) · `scripts/` (`serve.mjs`, `check-db.mjs`) · `tests/` · `docs/supabase.md` (puesta en marcha de Supabase).
+- Hosting: GitHub Pages (repo público `luigikings/leisuresocietyfeedback`), desde `main` / `(root)`: https://luigikings.github.io/leisuresocietyfeedback/ (panel en `/admin/`).
+- Estructura: `index.html` (encuesta) · `admin/index.html` (panel /admin) · `css/` (`survey.css`, `admin.css`) · `js/config.js` (URL, clave publicable y correo interno de la cuenta admin) · `js/content.js` (preguntas, países, `CONTENT.version`) · `js/lib/` (lógica pura, testeada) · `js/app/` (DOM, red, pantallas de la encuesta en `screens/` y panel en `admin/`) · `assets/` (`flags/` banderas SVG, `icons/` icono de Other y `fonts/` woff2 autoalojados + licencias OFL; los iconos de la ciudad van en línea en `index.html`) · `supabase/migrations/` (SQL) · `scripts/` (`serve.mjs`, `check-db.mjs`) · `tests/` · `docs/supabase.md` (puesta en marcha de Supabase, cuenta compartida del panel y revocación de sesiones).
 
 ## Comandos
 - Arrancar: `node scripts/serve.mjs [puerto]` (o `npm start`) → http://localhost:8080 por defecto.
@@ -20,7 +20,7 @@ El público entra por QR, responde 10 preguntas y una ciudad nocturna se ilumina
 ## Reglas de dominio / trampas conocidas
 - 10 preguntas = 10 sitios de ocio: cada respuesta enciende exactamente uno.
 - Las respuestas se guardan al momento en UNA fila por participante (ID aleatorio en el navegador), no solo al final.
-- La clave anon de Supabase es pública: la seguridad depende de RLS. El público no tiene permisos sobre las tablas: escribe solo mediante la RPC `save_response` (security definer), y el ID UUID v4 del navegador es su secreto. Solo leen los admins autenticados que están en `public.admins`.
+- La clave anon de Supabase es pública: la seguridad depende de RLS. El público no tiene permisos sobre las tablas: escribe solo mediante la RPC `save_response` (security definer), y el ID UUID v4 del navegador es su secreto. Solo leen los admins autenticados que están en `public.admins` (hoy, una sola cuenta compartida "admin"; ver `docs/supabase.md` §4).
 - /admin es una página pública en hosting estático: los datos los protege Supabase, no la página.
 - Supabase pausa los proyectos gratuitos tras ~7 días sin actividad: probar antes de la presentación.
 - "Jeopardy" es la referencia del primer evento; no usar logos ni música de programas reales.
