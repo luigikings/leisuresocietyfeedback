@@ -184,9 +184,12 @@ test("no linear-gradient on .option or .btn rules, and no gradient anywhere with
   }
 });
 
-test("no text-shadow or text stroke anywhere (RF-93)", () => {
-  assert.doesNotMatch(CSS, /text-shadow\s*:/);
+test("no text stroke and no gold text shadow; the only text-shadow is the night one of RF-82 (RF-93, RF-170, doubt 63 (a))", () => {
   assert.doesNotMatch(CSS, /text-stroke/);
+  const shadows = cssRules(CSS).filter((r) => /text-shadow\s*:/.test(r.body));
+  assert.deepEqual(shadows.map((r) => r.selector), [".intro__ask"], "text-shadow only on RF-82");
+  const value = shadows[0].body.match(/text-shadow\s*:\s*([^;]+);/)[1];
+  for (const part of value.split(",")) assert.match(part.trim(), /^0 0 \d+px var\(--night\)$/, "a soft night shadow, never gold");
 });
 
 // --- RF-17, RF-93, RF-96, RF-144: hexagon options without a letter -------------------
@@ -652,7 +655,7 @@ test("the entry variables in .screen--intro equal INTRO_ENTRY (RF-98, RF-100)", 
 test("each stage group and both texts play a finite entry with their own variables (RF-98, RF-102)", () => {
   const targets = [
     ...STAGE_GROUPS.map((id) => [id, `.plato__enter[data-enter="${id}"]`]),
-    ["thanks", ".intro__thanks"],
+    ["thanks", ".intro__panel"], // T44: the panel enters with RF-81 and the text has no entry of its own (plan §17.6)
     ["ask", ".intro__ask"],
   ];
   for (const [id, selector] of targets) {
@@ -1964,4 +1967,236 @@ test("final layout: header, map and bar share the map width and sit together, ce
   const box = rulesWith('.app[data-screen="final"] .city-box')[0];
   assert.match(box.body, /aspect-ratio\s*:\s*400 \/ 292/, "the box is exactly the map, no gaps above or below");
   for (const r of [wrap, kids, box]) assert.doesNotMatch(r.body, /position\s*:\s*(fixed|sticky|absolute)/, r.selector);
+});
+
+// --- T43: Q3 multiple choice: hint, checkbox group and square box (RF-17, RF-96, RF-156, RF-157, RNF-4, plan §17.3) ---
+
+test("#question-hint sits between the statement and the options, hidden and aria-hidden (RF-17, RF-156, RNF-4)", () => {
+  const q = sectionHtml("screen-question");
+  const hint = q.match(/<p[^>]*id="question-hint"[^>]*>/);
+  assert.ok(hint, "no #question-hint");
+  assert.match(hint[0], /class="question__hint"/);
+  assert.match(hint[0], /\shidden[\s>]/, "hidden until a multiple-choice question");
+  assert.match(hint[0], /aria-hidden="true"/, "read once, as the group description, not as loose text");
+  assert.match(q, /id="question-title"[\s\S]*id="question-hint"[\s\S]*class="options"/, "order: statement, hint, options");
+});
+
+test("question.js: group + checkbox in multiple choice, radiogroup + radio otherwise, described by the hint (RNF-4)", () => {
+  assert.match(QUESTION_JS, /"checkbox"/);
+  assert.match(QUESTION_JS, /"radio"/);
+  assert.match(QUESTION_JS, /"group"/);
+  assert.match(QUESTION_JS, /"radiogroup"/);
+  assert.match(QUESTION_JS, /"aria-describedby"\s*,\s*"question-hint"/);
+  assert.match(QUESTION_JS, /removeAttribute\(\s*"aria-describedby"\s*\)/, "single-answer groups have no description");
+  assert.match(QUESTION_JS, /view\.hint/, "the hint text comes from question-view");
+  assert.match(QUESTION_JS, /function boxIcon/);
+  assert.match(QUESTION_JS, /"option__box"/);
+  assert.match(QUESTION_JS, /view\.multiple/);
+});
+
+test(".question__hint: Figtree >= 14 px, --muted on --night (>= 4.5:1) (RF-156)", () => {
+  const body = rulesWith(".question__hint").map((r) => r.body).join("\n");
+  assert.ok(body, "no .question__hint rule");
+  assert.match(body, /color\s*:\s*var\(--muted\)/);
+  const size = body.match(/font(?:-size)?\s*:[^;]*?(\d+(?:\.\d+)?)px/);
+  assert.ok(size && Number(size[1]) >= 14, "font size >= 14 px");
+  assert.ok(contrast(rootVar("--muted"), rootVar("--night")) >= 4.5);
+});
+
+test(".option__box: square with a 2 px --text border unchecked and --night fill checked, both >= 3:1 (RF-157, RNF-4)", () => {
+  const box = rulesWith(".option__box").map((r) => r.body).join("\n");
+  assert.ok(box, "no .option__box rule");
+  assert.match(box, /border\s*:\s*2px solid var\(--text\)/);
+  assert.match(box, /width\s*:\s*20px/);
+  assert.match(box, /height\s*:\s*20px/);
+  assert.match(box, /border-radius\s*:\s*3px/, "square corners of 3 px, not a circle");
+  assert.ok(contrast(rootVar("--text"), rootVar("--royal-deep")) >= 3, "unchecked: --text border on the night hexagon");
+  const on = rulesWith('.option[aria-checked="true"] .option__box').map((r) => r.body).join("\n");
+  assert.ok(on, "no checked .option__box rule");
+  assert.match(on, /background(?:-color)?\s*:\s*var\(--night\)/);
+  assert.match(on, /border-color\s*:\s*var\(--night\)/);
+  assert.ok(contrast(rootVar("--night"), rootVar("--gold")) >= 3, "checked: --night box on gold");
+  const tick = rulesWith('.option[aria-checked="true"] .option__box-tick').map((r) => r.body).join("\n");
+  assert.match(tick, /opacity\s*:\s*1/, "the check mark shows only when checked");
+});
+
+// --- T44: intro texts big on the stage, over a night panel (RF-80, RF-88, RF-149 to RF-153, RF-167, RF-168, plan §17.6) ---
+
+/** Rules (outside reduced motion) whose selector list contains exactly `selector`, optionally inside an @media. */
+function rulesIn(selector, media) {
+  let css = CSS.replace(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/, "");
+  if (media) {
+    const blocks = [...css.matchAll(new RegExp(String.raw`@media \(${media}\)\s*\{([\s\S]*?)\n\}`, "g"))].map((m) => m[1]);
+    css = blocks.join("\n");
+  } else {
+    css = css.replace(/@media[^{]*\{[\s\S]*?\n\}/g, "");
+  }
+  return cssRules(css).filter((r) => r.selector.split(",").map((x) => x.trim()).includes(selector));
+}
+const declIn = (selector, prop, media) => {
+  for (const r of rulesIn(selector, media)) {
+    const m = r.body.match(new RegExp(String.raw`(?:^|[;\s])${prop}\s*:\s*([^;]+);`));
+    if (m) return m[1].trim();
+  }
+  return undefined;
+};
+const pxOf = (v) => (v && /^-?\d+(\.\d+)?px$/.test(v) ? Number(v.slice(0, -2)) : Number.NaN);
+
+test("intro: RF-81 alone in .intro__panel inside .intro__scene after the svg; RF-82 outside, right before the button (RF-80, RF-150, RF-152, RNF-4)", () => {
+  const scene = INTRO.match(/<div class="intro__scene">([\s\S]*)<\/div>\s*<p class="intro__ask">/);
+  assert.ok(scene, "no .intro__scene right before RF-82");
+  const inner = scene[1];
+  const svgEnd = inner.indexOf("</svg>");
+  const panel = inner.search(/<div class="intro__panel">/);
+  assert.ok(svgEnd > 0 && inner.indexOf('<div class="plato">') >= 0, "the stage is not inside .intro__scene");
+  assert.ok(panel > svgEnd, "the panel must come after the stage svg");
+  const panelHtml = inner.slice(panel);
+  assert.match(
+    panelHtml,
+    /^<div class="intro__panel">\s*<p class="intro__thanks">Thank you for being part of our first event! We hope you enjoyed it as much as we did<\/p>\s*<\/div>/,
+    "RF-81, alone, inside the panel",
+  );
+  assert.doesNotMatch(inner, /intro__ask/, "RF-82 is out of the stage and the panel");
+  assert.doesNotMatch(inner, /<button/, "the button stays outside the scene");
+  assert.match(
+    INTRO,
+    /<\/div>\s*<p class="intro__ask">Do you want to help us with our new assignment\?<\/p>\s*<button type="button" class="btn btn--primary" data-action="start">Give feedback<\/button>\s*<\/section>$/,
+    "RF-82 right before the button, and the button a direct child of the section",
+  );
+  assert.doesNotMatch(INTRO.match(/<div class="intro__panel"[^>]*>/)[0], /aria-|role=/, "the panel is plain and decorative");
+});
+
+test("CSS: --stage-w from the width and the height minus 108 px and 2 lines of RF-82 (RF-88, RF-168 step 1); full column width below 568 px (step 2)", () => {
+  assert.equal(declIn(".screen--intro", "--ask-h"), "calc(18px * 1.3 * 2)", "2 lines of 18 px x 1.3 reserved");
+  const w = declIn(".screen--intro", "--stage-w");
+  assert.ok(w, "no --stage-w on .screen--intro");
+  assert.match(w, /^min\(100vw - 32px, 398px, \(100dvh - 108px - var\(--ask-h\) - env\(safe-area-inset-bottom\)\) \* 3 \/ 4\)$/);
+  const supports = CSS.match(/@supports not \(height: 100dvh\)\s*\{[^@]*?\.screen--intro\s*\{([^}]*)\}/);
+  assert.ok(supports, "no @supports fallback for --stage-w");
+  assert.match(supports[1], /--stage-w:\s*min\(100vw - 32px, 398px, \(100vh - 108px - var\(--ask-h\) - env\(safe-area-inset-bottom\)\) \* 3 \/ 4\);/);
+  assert.equal(declIn(".screen--intro", "--stage-w", "max-height: 567px"), "min(100vw - 32px, 398px)");
+  assert.doesNotMatch(CSS, /225px/, "the 225 px stage below 568 px is gone");
+  assert.equal(declIn(".intro__scene", "display"), "grid");
+  assert.equal(declIn(".intro__scene", "grid-template-rows"), "calc(var(--stage-w) * 4 / 3)", "one row, as tall as the stage");
+  assert.equal(declIn(".intro__scene", "width"), "var(--stage-w)");
+  assert.equal(declIn(".plato", "width"), "var(--stage-w)");
+  assert.equal(declIn(".plato", "height"), "calc(var(--stage-w) * 4 / 3)");
+  assert.equal(declIn(".plato", "grid-area"), "1 / 1");
+  assert.equal(declIn(".plato", "flex"), undefined, "the flex basis of plan §14.4 is gone");
+});
+
+// --- T44c: question next to the button (plan §17.13) ----------------------------------------------
+/** Splits a CSS value on top-level spaces (not inside parentheses). */
+const splitTop = (v) => {
+  const out = [];
+  let depth = 0;
+  let cur = "";
+  for (const ch of v) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (ch === " " && depth === 0) {
+      if (cur) out.push(cur);
+      cur = "";
+    } else cur += ch;
+  }
+  if (cur) out.push(cur);
+  return out;
+};
+/** Top / inline / bottom of a margin or padding shorthand (1 to 4 values). */
+const box = (v) => {
+  const p = splitTop(v);
+  return { top: p[0], inline: p[1] ?? p[0], bottom: p[2] ?? p[0] };
+};
+
+test("CSS: the panel starts 4 px below the category row, >= 8 px from the sides, as tall as RF-81 + 12 + 12 (RF-150, RF-167)", () => {
+  assert.equal(declIn(".intro__panel", "grid-area"), "1 / 1");
+  assert.equal(declIn(".intro__panel", "align-self"), "start");
+  const m = box(declIn(".intro__panel", "margin"));
+  assert.equal(m.top, "calc(var(--stage-w) * 3 / 8 + 4px)", "3/8 of the stage width (bottom of the categories) + 4 px");
+  assert.ok(pxOf(m.inline) >= 8, "margin-inline >= 8 px");
+  assert.ok(m.bottom === "0" || pxOf(m.bottom) === 0, "no bottom margin");
+  const p = box(declIn(".intro__panel", "padding"));
+  assert.equal(pxOf(p.top), 12, "12 px top padding");
+  assert.equal(pxOf(p.bottom), 12, "12 px bottom padding");
+  for (const prop of ["min-height", "height", "display", "flex-direction", "justify-content"]) {
+    assert.equal(declIn(".intro__panel", prop), undefined, `.intro__panel has no ${prop}: its height is its content`);
+  }
+  assert.doesNotMatch(CSS, /backdrop-filter/, "no blur (RNF-12, proposal 56)");
+});
+
+test("CSS: RF-82 is as wide as the stage, 16 px below it and 8 px above the button, painted over the button halo with a night shadow (RF-150, RF-170, doubt 63 (a))", () => {
+  assert.equal(declIn(".intro__ask", "width"), "var(--stage-w)");
+  assert.equal(declIn(".intro__ask", "margin"), "4px auto -4px");
+  assert.equal(declIn(".intro__ask", "position"), "relative");
+  assert.ok(Number(declIn(".intro__ask", "z-index")) >= 1, ".intro__ask z-index >= 1");
+  assert.equal(declIn(".intro__ask", "text-shadow"), "0 0 2px var(--night), 0 0 6px var(--night)");
+  const gap = pxOf(declIn(".screen--intro", "gap"));
+  assert.equal(gap + 4, 16, "16 px from the stage to RF-82");
+  assert.equal(gap - 4, 8, "8 px from RF-82 to the button");
+});
+
+test("CSS: the --stage-w rule gives the column of plan §17.13 on the 5 screens, with no scroll from 568 px of height (RF-88, RF-168)", () => {
+  const ask = declIn(".screen--intro", "--ask-h").match(/^calc\((\d+)px \* ([\d.]+) \* (\d+)\)$/);
+  const sw = declIn(".screen--intro", "--stage-w").match(/^min\(100vw - (\d+)px, (\d+)px, \(100dvh - (\d+)px - var\(--ask-h\)/);
+  assert.ok(ask && sw, "--ask-h and --stage-w in the form of plan §17.13");
+  const askH = Number(ask[1]) * Number(ask[2]) * Number(ask[3]);
+  const [side, max, reserve] = sw.slice(1).map(Number);
+  const gap = pxOf(declIn(".screen--intro", "gap"));
+  const m = box(declIn(".intro__ask", "margin"));
+  const btn = pxOf(declIn(".btn", "min-height"));
+  const pad = 32; // 16 px top padding of the section + 16 px bottom padding of .app
+  assert.equal(reserve, pad + (gap + pxOf(m.top)) + (gap + pxOf(m.bottom)) + btn, "108 = 16 + 16 + 16 + 8 + 52");
+  const stageW = (vw, vh) => (vh < 568 ? Math.min(vw - side, max) : Math.min(vw - side, max, ((vh - reserve - askH) * 3) / 4));
+  const rows = [
+    // screen, vw, vh, --stage-w of the plan
+    ["320x568", 320, 568, 288],
+    ["375x667", 375, 667, 343],
+    ["375x568", 375, 568, 309.9],
+    ["430x568", 430, 568, 309.9],
+    ["320x480", 320, 480, 288],
+  ];
+  for (const [screen, vw, vh, expected] of rows) {
+    const w = stageW(vw, vh);
+    assert.ok(Math.abs(w - expected) <= 0.1, `${screen}: --stage-w ${w}`);
+    const content = (w * 4) / 3 + (gap + pxOf(m.top)) + askH + (gap + pxOf(m.bottom)) + btn;
+    if (vh >= 568) assert.ok(content <= vh - pad + 0.01, `${screen}: ${content} px of content in ${vh - pad} px (no scroll)`);
+    else assert.ok(content > vh - pad, `${screen}: below 568 px the page scrolls (RF-168 step 2)`);
+  }
+});
+
+test("CSS: the panel is night blue at 85 %, so RF-81 stays >= 4.5:1 over white (RF-151); RF-82 >= 4.5:1 on the page (RF-170)", () => {
+  const bg = declIn(".intro__panel", "background");
+  assert.equal(bg, "rgb(6 10 34 / .85)");
+  const over = (fg) => Math.round(0.85 * fg + 0.15 * 255); // the panel over the lightest thing behind it
+  const hex = (n) => n.toString(16).padStart(2, "0");
+  const worst = `#${hex(over(6))}${hex(over(10))}${hex(over(34))}`;
+  assert.equal(declIn(".intro__thanks", "color"), "var(--text)");
+  assert.equal(declIn(".intro__ask", "color"), "var(--muted)");
+  assert.ok(contrast(rootVar("--text"), worst) >= 4.5, "--text on the panel over white");
+  assert.ok(contrast(rootVar("--muted"), rootVar("--night")) >= 4.5, "--muted on the night page");
+});
+
+test("CSS: RF-81 >= 22 px (20 px below 375 px) and weight >= 600, RF-82 >= 18 px (RF-149)", () => {
+  assert.ok(pxOf(declIn(".intro__thanks", "font-size")) >= 22, ".intro__thanks >= 22 px");
+  assert.ok(Number(declIn(".intro__thanks", "font-weight")) >= 600, ".intro__thanks weight >= 600");
+  const small = declIn(".intro__thanks", "font-size", "max-width: 374px");
+  assert.ok(small, "no .intro__thanks size below 375 px");
+  assert.ok(pxOf(small) >= 20, ".intro__thanks >= 20 px below 375 px");
+  assert.ok(pxOf(declIn(".intro__ask", "font-size")) >= 18, ".intro__ask >= 18 px");
+  for (const media of ["max-width: 374px", "max-height: 567px"]) {
+    const s = declIn(".intro__ask", "font-size", media);
+    if (s) assert.ok(pxOf(s) >= 18, `.intro__ask >= 18 px in @media (${media})`);
+  }
+});
+
+test("CSS: panel enters with RF-81; RF-81 has no entry of its own and RF-82 only fades in (RF-98, RF-153)", () => {
+  assert.equal(declIn(".intro__thanks", "animation"), undefined, "RF-81 enters with its panel");
+  const ask = declIn(".intro__ask", "animation");
+  assert.match(ask, /^intro-fade\b/);
+  const panel = declIn(".intro__panel", "animation");
+  assert.match(panel, /^intro-enter\b/);
+  // the panel never loops and has no flash (RF-86, RF-153)
+  for (const r of cssRules(CSS).filter((r) => /\.intro__panel/.test(r.selector))) {
+    assert.doesNotMatch(r.body, /\binfinite\b/);
+  }
 });

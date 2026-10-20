@@ -246,3 +246,74 @@ Toda la lógica y sus tests (T1-T4), la guía (T5) y la página con su formulari
 - Correcciones de "4 admins" (criterio de la spec): nota en la definición "Admin" de `specs/001-survey/spec.md` que remita a la 002, paso 4 de `docs/supabase.md` (ya en T5) y `MEMORY.md`.
 - MEMORY.md: cuenta compartida y correo interno final, trampa de `signOut` global, sesión sin caducidad y procedimiento de revocación, URL `/admin/`.
 - AGENTS.md: proponer añadir `admin/` y `js/app/admin/` a la estructura y la regla "la contraseña del panel nunca pasa por un agente".
+
+## 11. Cambio de requisitos 2026-10-19: Q3 de opción múltiple
+Cubre las definiciones modificadas, RF-32, RF-34, RF-40, RF-50, RF-55, RF-56, RNF-11 y los nuevos RF-71 a RF-76, aprobados por el usuario el 2026-10-19 junto con las propuestas 34 a 39.
+
+Va junto al cambio de la spec 001 (plan 001 §17): reutiliza `js/lib/choice.js`, que crea la T39 de la 001, y se publica en el mismo push, después de la migración (plan 001 §17.9, T42 y T45 de la 001).
+
+**Lo que no cambia**: carga, acceso, filtros, búsqueda, filtro de comentarios (RF-75), orden, formato de fechas y de los CSV (BOM, coma, CRLF, protección de fórmulas), y la base de datos desde esta spec (RF-50). Sin consultas nuevas.
+
+### 11.1 `admin-stats.js` — RF-71, RF-72, RF-76 (propuestas 34, 37, 39)
+```
+questionStats(rows, content), por pregunta q:
+  multi = isMultiple(q)                                   // de choice.js
+  por fila con opción guardada (texto no vacío):
+    answers += 1                                          // una vez por fila (RF-71)
+    si multi: letras = lettersOf(valor)                   // sin repetidas
+      por letra: conocida → counts[letra] += 1; desconocida → unknownCounts[letra] += 1
+      si alguna desconocida → unknownRows += 1            // RF-76: filas, no letras
+    si no: como hoy (el valor entero, p. ej. "AC" en Q1, es una opción desconocida)
+  options: como hoy, percent(count, answers)              // definición "Porcentaje de una opción"
+  unknown: { count: unknownRows (multi) o el total de hoy, percent, options: [{ letter, count, percent }] }
+  multiple: multi
+  note: multi ? "Multiple choice – percentages can add up to more than 100%" : null      // RF-72
+```
+- `answeredCount` no cambia: un texto no vacío cuenta como respondida.
+- `MULTIPLE_NOTE` se exporta como constante para la vista y los tests.
+
+### 11.2 `admin-list.js` — RF-73
+- `describeEntry` añade `lines` en cada respuesta:
+  - multi: una línea por letra de `lettersOf(valor)`, en orden A, B, C, como `"A · The theme"`, o `"X · (unknown option)"` si la letra no existe;
+  - única: `[answer]`;
+  - sin responder: `[]`.
+- `answer` se mantiene (las líneas unidas por "\n" en multi) para no romper el uso actual.
+
+### 11.3 `csv.js` — RF-74, RF-76 (duda 45 de la 001, propuesta 36)
+- `answerCells` en Q3 (multi): q3_option `lettersOf(v).join(", ")` → "A, C"; q3_label con las etiquetas unidas por "; " → "The theme; A message", con "(unknown option)" en el lugar de una letra desconocida; q3_comment como hoy.
+- `statisticsCsv`:
+  - la cabecera de "Questions" añade `choice` al final;
+  - cada fila lleva `"multiple"` o `"single"` según `q.multiple`, también las filas "(unknown option)";
+  - los números salen de `questionStats`, así que son iguales a la pantalla (RF-57).
+- **Decisión**: "A, C" se queda en una sola celda; `csvCell` ya la pone entre comillas por llevar coma. **Descartado**: columnas 1/0 por letra (duda 45, opción b, no elegida).
+
+### 11.4 Vistas — RF-72, RF-73
+- `js/app/admin/stats-view.js`: si `q.note`, un `<p class="stat-block__note">` junto a "N answers". Se pinta siempre, también con "No answers yet". El aviso de opción desconocida sigue igual con `q.unknown.count` (filas).
+- `js/app/admin/list-view.js`: pinta `a.lines` como un `<span class="answer">` por línea (con `textContent`, RF-47), o "—" si no hay líneas. Igual en la tabla y en las tarjetas.
+- `css/admin.css`: `.stat-block__note` en texto normal de 14 px o más, `--muted`, contraste ≥ 4.5:1 (RNF-5); `.answer` en bloque si hay varias líneas.
+
+### 11.5 Tests (`node --test`) — primero en rojo
+- `tests/admin-stats.test.js`:
+  - el caso límite de la spec: 4 filas "A", "AC", "ABC" y sin responder → 3 answers, A 3/100, B 1/33, C 2/67;
+  - `note` solo en Q3, también con 0 respuestas;
+  - una letra desconocida en "AD" → A suma 1, `unknown.count` 1 (filas), y otra fila con "AD" → 2;
+  - "AC" guardado en Q1 → opción desconocida entera;
+  - filas antiguas con "B" en Q3 cuentan como B.
+- `tests/admin-list.test.js`: `lines` en Q3 ("A · The theme", "C · A message"), con letra desconocida y en una pregunta única.
+- `tests/csv.test.js`:
+  - q3_option `"A, C"` entre comillas;
+  - q3_label "The theme; A message";
+  - columna `choice` con "multiple" en las filas de Q3 (también "(unknown option)") y "single" en las demás;
+  - números iguales a `questionStats`.
+- `tests/admin-markup.test.js`: solo si cambia el HTML (no se espera).
+
+### 11.6 Cobertura
+| Parte | RF |
+|---|---|
+| admin-stats.js | RF-32, RF-34, RF-71, RF-72, RF-76 |
+| admin-list.js + list-view.js | RF-40, RF-73, RF-75 |
+| csv.js | RF-55, RF-56, RF-57, RF-74 |
+| stats-view.js + admin.css | RF-72 |
+
+### 11.7 Al cerrar
+Junto con la T45 de la 001: spec en "implementada" tras el APROBADO; MEMORY.md (Q3 en el panel: recuento por participante y "A, C" en el CSV).

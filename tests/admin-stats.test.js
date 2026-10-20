@@ -15,6 +15,7 @@ import {
   questionStats,
   byCountry,
   countryFlag,
+  MULTIPLE_NOTE,
 } from "../js/lib/admin-stats.js";
 
 const V = CONTENT.version;
@@ -348,6 +349,120 @@ test("questionStats does not mutate rows or content", () => {
   questionStats(rows, CONTENT);
   assert.deepEqual(rows, rowsCopy);
   assert.deepEqual(CONTENT, contentCopy);
+});
+
+// ---- T11: Q3 multiple choice, counted per participant (RF-32, RF-34, RF-71, RF-72, RF-76) ----
+
+test("questionStats Q3: \"A\", \"AC\", \"ABC\" and one unanswered → 3 answers; A 3/100, B 1/33, C 2/67 (RF-71)", () => {
+  const rows = [
+    row({ answers: { q3: ["A"] } }),
+    row({ answers: { q3: ["AC", "nice"] } }),
+    row({ answers: { q3: ["ABC"] } }),
+    row({ status: "in_progress" }),
+  ];
+  const q3 = questionStats(rows, CONTENT)[2];
+  assert.equal(q3.answers, 3, "one per participant, not per marked option");
+  assert.deepEqual(
+    q3.options.map((o) => [o.letter, o.label, o.count, o.percent]),
+    [
+      ["A", "The theme", 3, 100],
+      ["B", "The people", 1, 33],
+      ["C", "A message", 2, 67],
+    ],
+  );
+  assert.equal(q3.unknown, null);
+  assert.equal(q3.comments, 1);
+  // Percentages add up to more than 100 and are not forced down (RF-34, RF-72).
+  assert.equal(
+    q3.options.reduce((s, o) => s + o.percent, 0),
+    200,
+  );
+});
+
+test("questionStats Q3: repeated letters in a stored value count once (propuesta 37)", () => {
+  const q3 = questionStats([row({ answers: { q3: ["AAC"] } })], CONTENT)[2];
+  assert.equal(q3.answers, 1);
+  assert.deepEqual(
+    q3.options.map((o) => o.count),
+    [1, 0, 1],
+  );
+});
+
+test("questionStats Q3: old rows with a single letter count as that option", () => {
+  const q3 = questionStats([row({ answers: { q3: ["B"] } }), row({ answers: { q3: ["B"] } })], CONTENT)[2];
+  assert.equal(q3.answers, 2);
+  assert.deepEqual(
+    q3.options.map((o) => [o.count, o.percent]),
+    [
+      [0, 0],
+      [2, 100],
+      [0, 0],
+    ],
+  );
+});
+
+test("questionStats: MULTIPLE_NOTE only on the multiple-choice question, also with 0 answers (RF-72)", () => {
+  assert.equal(MULTIPLE_NOTE, "Multiple choice – percentages can add up to more than 100%");
+  const empty = questionStats([], CONTENT);
+  empty.forEach((q) => {
+    const multi = q.id === "q3";
+    assert.equal(q.multiple, multi, q.id);
+    assert.equal(q.note, multi ? MULTIPLE_NOTE : null, q.id);
+  });
+  assert.equal(empty[2].answers, 0);
+  const some = questionStats([row({ answers: { q3: ["AB"], q1: ["A"] } })], CONTENT);
+  assert.equal(some[2].note, MULTIPLE_NOTE);
+  assert.equal(some[0].note, null);
+});
+
+test("questionStats Q3: unknown letters inside a value; unknown.count counts rows, not letters (RF-76)", () => {
+  const one = questionStats([row({ answers: { q3: ["AD"] } }), row({ answers: { q3: ["C"] } })], CONTENT)[2];
+  assert.equal(one.answers, 2);
+  assert.deepEqual(
+    one.options.map((o) => o.count),
+    [1, 0, 1],
+  );
+  assert.deepEqual(one.unknown, { count: 1, percent: 50, options: [{ letter: "D", count: 1, percent: 50 }] });
+
+  const rows = [
+    row({ answers: { q3: ["AD"] } }),
+    row({ answers: { q3: ["AD"] } }),
+    row({ answers: { q3: ["DE"] } }), // two unknown letters, still one row
+    row({ answers: { q3: ["B"] } }),
+  ];
+  const q3 = questionStats(rows, CONTENT)[2];
+  assert.equal(q3.answers, 4);
+  assert.deepEqual(
+    q3.options.map((o) => [o.count, o.percent]),
+    [
+      [2, 50],
+      [1, 25],
+      [0, 0],
+    ],
+  );
+  assert.deepEqual(q3.unknown, {
+    count: 3,
+    percent: 75,
+    options: [
+      { letter: "D", count: 3, percent: 75 },
+      { letter: "E", count: 1, percent: 25 },
+    ],
+  });
+});
+
+test("questionStats: \"AC\" stored in a single-choice question is one whole unknown option", () => {
+  const rows = [row({ answers: { q1: ["AC"] } }), row({ answers: { q1: ["A"] } })];
+  const q1 = questionStats(rows, CONTENT)[0];
+  assert.equal(q1.answers, 2);
+  assert.equal(q1.multiple, false);
+  assert.deepEqual(
+    q1.options.map((o) => [o.letter, o.count, o.percent]),
+    [
+      ["A", 1, 50],
+      ["B", 0, 0],
+    ],
+  );
+  assert.deepEqual(q1.unknown, { count: 1, percent: 50, options: [{ letter: "AC", count: 1, percent: 50 }] });
 });
 
 // ---- RF-30: participants by country, last in Statistics (RF-70) ----

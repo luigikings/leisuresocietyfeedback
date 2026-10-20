@@ -4,7 +4,7 @@
 // Real countries of the event (2026-10-18); more can be added later (bump `version`).
 
 export const CONTENT = {
-  version: "2026-10-live-1",
+  version: "2026-10-live-2", // live-2: Q3 became multiple choice (RF-166)
 
   // Shown in this order (RF-3, RF-10); "Other" is added last by the interface.
   countries: [
@@ -39,6 +39,7 @@ export const CONTENT = {
       id: "q3",
       site: "museum",
       text: "Did the event feel meaningful to you? In what way?",
+      multiple: true, // 1 to 3 options, saved as "A", "AC", "ABC"… (RF-154, RF-164). Only q3 may be multiple.
       options: [
         { letter: "A", label: "The theme", type: "normal" },
         { letter: "B", label: "The people", type: "normal" },

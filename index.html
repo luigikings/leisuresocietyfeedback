@@ -19,6 +19,9 @@
     <!-- INTRO: stage of the first event, two texts and "Give feedback" (RF-5 to RF-9, RF-80 to RF-88). Original drawing: no real TV logos, no audio. -->
     <section id="screen-intro" class="screen screen--intro" aria-labelledby="intro-title">
       <h1 id="intro-title" class="visually-hidden" tabindex="-1" data-title>Leisure in Jeopardy</h1>
+      <!-- Scene: the stage and, just below its category row, the panel with RF-81 (RF-80, RF-149 to RF-153, RF-167,
+           plan §17.6 and §17.13). RF-82 and the button stay outside, below (RF-150, RF-152). -->
+      <div class="intro__scene">
       <!-- Stage of the first event (Annex B, RF-83 to RF-85): decorative, so screen readers skip it (RNF-4) -->
       <div class="plato">
         <svg viewBox="0 0 300 400" aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid meet">
@@ -189,7 +192,10 @@
         </g>
         </svg>
       </div>
-      <p class="intro__thanks">Thank you for being part of our first event! We hope you enjoyed it as much as we did</p>
+      <div class="intro__panel">
+        <p class="intro__thanks">Thank you for being part of our first event! We hope you enjoyed it as much as we did</p>
+      </div>
+      </div>
       <p class="intro__ask">Do you want to help us with our new assignment?</p>
       <button type="button" class="btn btn--primary" data-action="start">Give feedback</button>
     </section>
@@ -455,6 +461,8 @@
       <div class="question">
         <p class="question__count" id="question-count"></p>
         <h1 id="question-title" class="question__text" tabindex="-1" data-title aria-describedby="question-count"></h1>
+        <!-- Multiple choice only (RF-156): text from view.hint. aria-hidden: readers get it once, as the description of the group (RNF-4). -->
+        <p class="question__hint" id="question-hint" hidden aria-hidden="true"></p>
         <div class="options" role="radiogroup" aria-labelledby="question-title"></div>
         <div class="answer-text" hidden>
           <label class="answer-text__label" for="answer-text"></label>

@@ -294,3 +294,27 @@ test("admin.css: table scrolls inside its box with a sticky first column; commen
   assert.match(CSS, /\.comment\s*\{[^}]*white-space:\s*pre-wrap/);
   assert.match(CSS, /\.comment\s*\{[^}]*overflow-wrap:\s*anywhere/);
 });
+
+// --- T13: Q3 multiple choice in the views (RF-72, RF-73, RF-75, RNF-5) ------------------------------------
+test("stats-view.js: the multiple-choice note next to 'N answers', also with 'No answers yet' (RF-72)", () => {
+  assert.match(STATS_JS, /q\.note/);
+  assert.match(STATS_JS, /"stat-block__note"/);
+  // painted before the 'No answers yet' branch, so it is shown whatever the data
+  assert.ok(STATS_JS.indexOf("stat-block__note") < STATS_JS.indexOf("q.answers === 0"));
+  // the unknown-option notice keeps counting q.unknown.count (rows, RF-76)
+  assert.match(STATS_JS, /q\.unknown\.count/);
+});
+
+test("list-view.js: one line per marked option from `lines`, comment below, '—' when empty (RF-40, RF-73)", () => {
+  assert.match(LIST_JS, /a\.lines/);
+  assert.equal(/a\.answer\b/.test(LIST_JS), false, "the lines, not the joined answer, are painted");
+  assert.match(LIST_JS, /"—"/);
+});
+
+test("admin.css: the note is normal text in --muted, at least 14 px (RF-72, RNF-5)", () => {
+  const rule = CSS.match(/\.stat-block__note\s*\{[^}]*\}/);
+  assert.ok(rule, ".stat-block__note is styled");
+  assert.match(rule[0], /color:\s*var\(--muted\)/);
+  const size = rule[0].match(/font-size:\s*([\d.]+)(rem|px)/);
+  if (size) assert.ok((size[2] === "rem" ? Number(size[1]) * 16 : Number(size[1])) >= 14);
+});

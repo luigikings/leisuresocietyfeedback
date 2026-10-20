@@ -47,8 +47,15 @@ test("the real content is valid (no errors), including flag files", () => {
   assert.deepEqual(validateContent(CONTENT, SITE_IDS, { hasFlag }), []);
 });
 
-test("content version is the live version of the real countries (RF-52)", () => {
-  assert.equal(CONTENT.version, "2026-10-live-1");
+test("content version is the live version with Q3 multiple choice (RF-52, RF-166)", () => {
+  assert.equal(CONTENT.version, "2026-10-live-2");
+});
+
+test("Q3 is the only multiple-choice question (RF-154)", () => {
+  assert.deepEqual(CONTENT.questions.filter((q) => q.multiple === true).map((q) => q.id), ["q3"]);
+  for (const q of CONTENT.questions) {
+    if (q.id !== "q3") assert.equal(Object.hasOwn(q, "multiple"), false, `${q.id} must not carry multiple`);
+  }
 });
 
 test("the countries are exactly NL, HU, VE, IT, RO, PL in that order (RF-3)", () => {
@@ -261,4 +268,39 @@ test("validation does not throw on a malformed content object", () => {
   assert.ok(validateContent({}, SITE_IDS).length > 0);
   const c = copy(); c.questions[0] = null; c.countries[0] = 42;
   assert.ok(validateContent(c, SITE_IDS).length > 0);
+});
+
+// --- Multiple choice (RF-4, proposal 47) ---------------------------------------
+
+test("rule: Q3 must be multiple choice", () => {
+  const c = copy(); delete c.questions[2].multiple;
+  assertError(c, /question q3 must be multiple choice/i);
+  const d = copy(); d.questions[2].multiple = false;
+  assertError(d, /question q3 must be multiple choice/i);
+});
+
+test("rule: only Q3 can be multiple choice", () => {
+  const c = copy(); c.questions[0].multiple = true;
+  assertError(c, /question q1: only q3 can be multiple choice/i);
+  const d = copy(); d.questions[9].multiple = true;
+  assertError(d, /question q10: only q3 can be multiple choice/i);
+});
+
+test("multiple: false on another question is accepted", () => {
+  const c = copy(); c.questions[0].multiple = false;
+  assert.deepEqual(validateContent(c, SITE_IDS), []);
+});
+
+test("rule: Q3 multiple choice options must be normal", () => {
+  for (const type of ["open-required", "open-optional"]) {
+    const c = copy(); c.questions[2].options[1].type = type;
+    assertError(c, /question q3: multiple choice options must be normal/i);
+  }
+});
+
+test("rule: multiple must be a boolean", () => {
+  const c = copy(); c.questions[2].multiple = "true";
+  assertError(c, /q3.*multiple must be a boolean/i);
+  const d = copy(); d.questions[0].multiple = 1;
+  assertError(d, /q1.*multiple must be a boolean/i);
 });

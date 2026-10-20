@@ -1,13 +1,17 @@
-// Statistics and common filters for /admin (spec 002: RF-22 a RF-25, RF-29 a RF-37, RF-57, RF-70).
+// Statistics and common filters for /admin (spec 002: RF-22 a RF-25, RF-29 a RF-37, RF-57, RF-70, RF-71, RF-72, RF-76).
 // Pure module: no DOM, no network, no date. The same functions feed the screen and "Download statistics"
 // (RF-57), so both show exactly the same numbers. Texts of questions, options and countries come from the
 // content data passed in (js/content.js, RF-28), never copied here.
 import { OTHER_CODE, flagPath } from "./sites.js";
+import { isMultiple, lettersOf } from "./choice.js";
 
 const ALL_COUNTRIES = "ALL";
 const OTHER_LABEL = "Other";
 const OTHER_ICON = "assets/icons/other.svg";
 const OPEN_SUFFIX = " (open answer)";
+
+/** Notice of the multiple-choice block, shown always, also with "No answers yet" (RF-72, propuestas 34 y 39). */
+export const MULTIPLE_NOTE = "Multiple choice – percentages can add up to more than 100%";
 
 /** Initial filters: unfiltered, so no country is ever required (RF-23, RF-24). */
 export const INITIAL_FILTERS = Object.freeze({ country: ALL_COUNTRIES, status: "all" });
@@ -124,23 +128,31 @@ export function answeredCount(row) {
 /**
  * One block per content question, in order (RF-31 a RF-37):
  * { id, n, text, answers, comments, options: [{ letter, label, count, percent }],
- *   unknown: null | { count, percent, options: [{ letter, count, percent }] } }.
+ *   unknown: null | { count, percent, options: [{ letter, count, percent }] }, multiple, note }.
  * `answers` includes unknown options, which are therefore in the denominator but never in a bar.
+ * Multiple choice (Q3, RF-71, RF-76): each row counts once in `answers`, and once in every distinct letter it
+ * marked, so percentages may add up to more than 100 (RF-34); `unknown.count` counts rows with at least one
+ * unknown letter, while `unknown.options` counts, per unknown letter, the rows that have it. In a
+ * single-choice question the whole stored value is the option ("AC" in Q1 is one unknown option).
  */
 export function questionStats(rows, content) {
   return content.questions.map((q, index) => {
+    const multiple = isMultiple(q);
+    const known = new Set(q.options.map((o) => o.letter));
     const counts = new Map();
     let answers = 0;
     let comments = 0;
+    let unknownRows = 0;
     for (const r of rows) {
       const option = r[`${q.id}_option`];
       if (hasOption(option)) {
         answers += 1;
-        counts.set(option, (counts.get(option) ?? 0) + 1);
+        const marked = multiple ? lettersOf(option) : [option];
+        for (const letter of marked) counts.set(letter, (counts.get(letter) ?? 0) + 1);
+        if (marked.some((letter) => !known.has(letter))) unknownRows += 1;
       }
       if (hasComment(r[`${q.id}_text`])) comments += 1;
     }
-    const known = new Set(q.options.map((o) => o.letter));
     const options = q.options.map((o) => {
       const count = counts.get(o.letter) ?? 0;
       return {
@@ -154,7 +166,6 @@ export function questionStats(rows, content) {
       .filter((letter) => !known.has(letter))
       .sort()
       .map((letter) => ({ letter, count: counts.get(letter), percent: percent(counts.get(letter), answers) }));
-    const unknownTotal = unknownOptions.reduce((sum, o) => sum + o.count, 0);
     return {
       id: q.id,
       n: index + 1,
@@ -165,7 +176,9 @@ export function questionStats(rows, content) {
       unknown:
         unknownOptions.length === 0
           ? null
-          : { count: unknownTotal, percent: percent(unknownTotal, answers), options: unknownOptions },
+          : { count: unknownRows, percent: percent(unknownRows, answers), options: unknownOptions },
+      multiple,
+      note: multiple ? MULTIPLE_NOTE : null,
     };
   });
 }

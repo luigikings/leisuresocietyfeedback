@@ -563,3 +563,260 @@ Estilo de la referencia y ciudad viva. Se trabaja igual que en el cambio anterio
     - Puntos revisados: el panel del final aparece con el giro de las banderas a propósito (RF-53: los textos siguen saliendo tras el destello); el fundido de salida de 200 ms de `#city-wrap` de la Q10 al final es compatible con RF-143 (sin entrada ni "rise" y el mapa ya en su tamaño).
     - Queda por probar a mano: DevTools → Network → bloquear `*.woff2`; Rendering → `prefers-reduced-motion: reduce`; Network → Disable cache + Fast 4G; y, con una fila de prueba que luego se borra, que tras volver la red queda una sola fila en la base de datos.
   - Revisión del reviewer (18/10/2026): **VEREDICTO: APROBADO** tras la corrección de RF-140 (farolas apagadas visibles en `.lamps__off`), `node --test` 416/416. Cierre: spec marcada como implementada, MEMORY.md y AGENTS.md actualizados (plan §16.12).
+
+## Cambio de requisitos 2026-10-19 (plan §17)
+Intro legible y Q3 de opción múltiple. La parte del panel son las tareas T11-T13 de `specs/002-admin/tasks.md` (plan 002 §11).
+
+Cómo se trabaja:
+- una tarea cada vez, con los tests primero (en rojo), después el código y luego en verde;
+- validación visual con el MCP Chrome DevTools en un contexto aislado, con `supabase.co` bloqueado por initScript hasta T45;
+- **ningún commit ni push hasta T45**, y T45 solo después de T42;
+- ningún agente usa la clave service_role; la migración la aplica el usuario.
+
+**Orden de ejecución**: T39 → T40 → T41 → T43 → T44 → T44b → T44c → (002) T11 → T12 → T13 → T45. **T42 [USUARIO]** se puede hacer en cuanto esté T41 y bloquea solo T45.
+
+- [x] **T39. Lógica: `choice.js`, contenido de Q3 y versión nueva, validación.** RF-4, RF-154, RF-161, RF-164, RF-166, RNF-7
+  - Archivos (plan §17.2):
+    - nuevo `js/lib/choice.js` (`MULTI_VALUES`, `isMultiple`, `lettersOf`, `toggleLetter`);
+    - `js/content.js` (`version: "2026-10-live-2"`, Q3 con `multiple: true`);
+    - `js/lib/content-validate.js` (reglas de opción múltiple).
+  - Tests primero: `tests/choice.test.js` (nuevo) y `tests/content.test.js` ampliado (plan §17.8).
+  - Hecho cuando:
+    - `node --test` en verde;
+    - `choice.js` no usa DOM, red ni reloj;
+    - un contenido con Q1 `multiple: true`, o con Q3 sin `multiple`, da el error correspondiente.
+
+- [x] **T40. Lógica: Q3 en el estado de la encuesta, vuelta a lo guardado (RF-169) y vista de la pregunta.** RF-17, RF-19, RF-20, RF-23, RF-26, RF-155 a RF-163, RF-169, RNF-7
+  - Archivos:
+    - `js/lib/survey-state.js` (`selectOption`, `fieldFor`/`canGoNext` para multi, `settle`, `back`/`systemBack` con `content`, `resumeState`);
+    - `js/lib/question-view.js` (`multiple`, `hint`, `checkedLetters`);
+    - `js/app/main.js` (solo pasar `CONTENT` a `back` y `systemBack`).
+  - Tests primero: `tests/survey-state.test.js`, `tests/question-view.test.js` y `tests/payload.test.js` ampliados (plan §17.8), incluidos los 4 casos de RF-169 y que `back` sin `content` se comporta como hoy.
+  - Hecho cuando:
+    - `node --test` en verde, y los tests anteriores de Q1-Q10 de respuesta única siguen en verde sin cambios;
+    - Q3 "AC" llega tal cual al envío;
+    - con Q3 respondida, todo desmarcado y Back, el borrador vuelve a lo guardado.
+  - Hecho (19/10/2026): `node --test` 625/625 en verde (26 tests nuevos: 21 en `tests/survey-state.test.js`, 4 en `tests/question-view.test.js` y 1 en `tests/payload.test.js`).
+    - Nota: 2 tests antiguos describían Q3 como de respuesta única (RF-19 anterior al cambio) y se adaptaron: el de `survey-state` ahora comprueba que A y luego C dan "AC", y el de `question-view` usa Q1 (Q3 era la única pregunta con 3 opciones).
+    - Nota: el campo visible sale de `currentField(state, content)` (nuevo en `survey-state.js`); `fieldFor(option)` no cambia. `next` guarda las letras de Q3 reordenadas A, B, C aunque el borrador llegue desordenado. `question-view.js` exporta `MULTIPLE_HINT`.
+    - Nota: hasta T43, `js/app/screens/question.js` pinta la marca con `checkedLetter`, que en Q3 vale `null`: en el navegador Q3 no muestra aún las opciones marcadas.
+
+- [x] **T41. Base de datos: migración 002, comprobación y guía.** RF-37, RF-62, RF-164, RF-165
+  - Archivos (plan §17.4, §17.5, §17.7):
+    - nuevo `supabase/migrations/002_q3_multiple.sql`;
+    - `supabase/migrations/001_survey.sql` (solo el comentario de orden en la cabecera);
+    - `scripts/check-db.mjs` (casos de Q3);
+    - `docs/supabase.md` (§2 orden de migraciones, §2.1 pasos del cambio de Q3, §6 filas de "2026-10-live-1").
+  - Tests primero: `tests/migration.test.js` ampliado con la 002 (plan §17.8).
+  - Hecho cuando:
+    - `node --test` en verde;
+    - la 002 no contiene ninguna clave, `grant` a tablas ni `disable row level security`;
+    - se puede ejecutar dos veces seguidas: la segunda avisa "q3 constraints dropped: 0" y deja la misma regla;
+    - la guía tiene los pasos del usuario en orden, con las consultas de solo lectura de antes y de después.
+  - Hecho (19/10/2026): `node --test` 633/633 en verde (8 tests nuevos en `tests/migration.test.js`, que comprueban además que el cuerpo de `save_response` en la 002 es el de la 001 salvo la regla de la opción). La migración NO se ha ejecutado (T42, del usuario); sin Postgres local, el SQL se revisó a mano.
+    - Nota: la consulta de solo lectura filtra por `ilike '%q3_option%'` (la misma condición que usa la 002), no por `'%q3%'` como en plan §17.4: esa también encuentra la regla de longitud de `q3_text` y daría 2 filas.
+    - Nota: además del `raise notice`, la 002 termina con un `select` (columnas `result` y `q3_option_rules`), porque el SQL Editor muestra el último resultado y no siempre los avisos. El número pasa del bloque `do` al `select` con `set_config('leisure_city.q3_dropped', …)`.
+    - Nota: `docs/supabase.md` §6 tiene un punto nuevo (3) para borrar las filas de "2026-10-live-1"; los siguientes se renumeran.
+
+- [x] **T42. [USUARIO] Aplicar la migración 002 en el SQL Editor de Supabase y comprobarla.** RF-62, RF-164, RF-165
+  - Acción del usuario, con `docs/supabase.md` §2.1. El coordinador puede acompañarle en el navegador integrado, pero **la ejecución es del usuario** en su sesión del panel de Supabase; ningún agente usa la clave service_role.
+    - [x] (a) ejecutar la consulta de solo lectura del nombre de la regla de q3, que debe dar 1 fila, y anotar aquí el nombre;
+    - [x] (b) pegar `002_q3_multiple.sql` entero y pulsar Run; debe aparecer el aviso "q3 constraints dropped: 1" y ningún error;
+    - [x] (c) repetir la consulta: solo queda `responses_q3_option_multi_check` con los 7 valores;
+    - [x] (d) `node scripts/check-db.mjs` (lo puede lanzar un agente: solo usa la clave pública) con todos los casos en PASS, también los nuevos de Q3;
+    - [x] (e) borrar las filas `dbcheck…` (guía, paso 6).
+  - Si (a) no da exactamente 1 fila, o (b) da error: parar y avisar (no se improvisa SQL).
+  - Bloquea: T45 (push). No bloquea T43, T44 ni T11-T13.
+  - Hecho cuando: el usuario confirma (b) y (c), y (d) está en verde.
+  - Estado 2026-10-20 (con el usuario):
+    - (a) la consulta de solo lectura da 1 fila, que ya es `responses_q3_option_multi_check`, con `CHECK ((q3_option = ANY (ARRAY['A','B','C','AB','AC','BC','ABC'])))`. La 002 ya se había aplicado en una sesión anterior y no se anotó el nombre de la regla antigua. No se volvió a ejecutar (es idempotente y no hacía falta).
+    - (b) y (c): cumplidas por ese resultado.
+    - (d) `node scripts/check-db.mjs`: 50/50 PASS, incluidos los casos RF-164 y RF-62 de Q3.
+    - (e) el usuario borró a mano las 65 filas `dbcheck…` (24 completed y 41 in_progress) el 2026-10-20. Una consulta de recuento posterior da 0 filas `dbcheck…`; quedan live-1: 3, live-2: 1, test-1: 15 y test-2: 11.
+  - Hecho (20/10/2026): (a)-(e) cumplidos; T42 cerrada. Ya no bloquea T45.
+
+- [x] **T43. Interfaz de Q3: grupo de casillas, aviso "Choose one or more" y teclado.** RF-17, RF-96, RF-155 a RF-159, RF-169, RNF-4
+  - Archivos (plan §17.3):
+    - `index.html` (`#question-hint`);
+    - `js/app/screens/question.js` (rol del grupo y de las opciones, `aria-describedby`, tabIndex, `boxIcon`);
+    - `css/survey.css` (`.question__hint`, `.option__box` en los dos estados).
+  - Tests primero: `tests/markup.test.js` (`#question-hint` con `aria-hidden`), y los de lógica de T40.
+  - Hecho cuando:
+    - `node --test` en verde;
+    - en Chrome DevTools a 375×667 y 320×568 (con `supabase.co` bloqueado):
+      - Q3 muestra el aviso y casillas vacías;
+      - marca y desmarca 1, 2 y 3 opciones;
+      - "Next" desactivado con 0 marcadas;
+      - un solo campo "Want to tell us why?", que desaparece con 0 y vuelve con su texto;
+      - Back y recarga conservan lo marcado;
+      - Q3 respondida, todo desmarcado y Back: al volver, lo guardado;
+      - el museo es el único sitio que se enciende;
+      - Q1 y Q4 siguen como antes;
+    - en el árbol de accesibilidad: `group` con descripción "Choose one or more" (leída una vez), `checkbox` marcados o sin marcar en Q3 y `radio` en las demás;
+    - teclado: Tab recorre las 3 opciones, Espacio e Intro marcan, y el foco no se mueve;
+    - contraste de la casilla ≥ 3:1 en los dos estados (medido);
+    - consola limpia.
+  - Hecho (19/10/2026): `node --test` 637/637 en verde (4 tests nuevos en `tests/markup.test.js`). Comprobado en Chrome DevTools (servidor propio en 8093, `fetch` a supabase.co bloqueado por initScript, 0 peticiones reales) a 375×667 y 320×568: aviso y casillas vacías; marcar C y luego A da "AC"; 1, 2 y 3 marcadas; con 0 marcadas "Next" desactivado y campo oculto con el texto conservado, que vuelve al marcar; Next con "AB" enciende solo el museo; Q4 vuelve a `radiogroup`/`radio` con roving y flechas; Back conserva lo marcado y el texto; RF-169 con Back y con recarga vuelve a "AB"; cambio a "ABC" y Next sustituye la respuesta. Árbol: `group` con description "Choose one or more" y el párrafo `ignored`; `checkbox` en Q3. Teclado: Tab pasa de A a B, Espacio marca, Intro desmarca, la flecha no hace nada y el foco no se mueve. Contraste medido: casilla sin marcar 16,1:1, marcada 11,1:1; aviso 15 px a 8,0:1. Sin scroll horizontal. Consola sin errores (solo el aviso de Chrome "Session History Item Has Been Marked Skippable").
+    - Nota: el cuadrado es un `span` con borde CSS (20×20, 2 px, radio 3 px) y solo la marca es SVG; el plan hablaba de "un cuadrado SVG". Así el color del borde y del relleno se comprueban como reglas CSS en los tests.
+    - Nota: `.question__hint` lleva `margin: -8px 0 8px` (el plan dice margen inferior de 8 px) para que el aviso quede pegado al enunciado, cuyo margen inferior es de 16 px.
+    - Nota: la "recarga" se hizo navegando a about:blank y volviendo con el initScript, no con reload (que lo perdería).
+
+- [x] **T44. Intro: textos grandes sobre el plató, con panel.** RF-80, RF-88, RF-121, RF-123, RF-149 a RF-153, RF-167, RF-168, RNF-4, RNF-12
+  - Archivos (plan §17.6):
+    - `index.html` (`.intro__scene` y `.intro__panel`);
+    - `css/survey.css` (`--stage-w`, rejilla, panel, tipografía, entrada del panel; se quita el `flex` del plató de §14.4).
+  - Tests primero: `tests/markup.test.js` (estructura y CSS de la intro, plan §17.8); `tests/intro.test.js` y `tests/intro-entry.test.js` siguen en verde.
+  - Hecho cuando:
+    - `node --test` en verde;
+    - en Chrome DevTools, con fuentes y con las fuentes bloqueadas, a 320×568, 375×667, 375×568 y 430×568:
+      - sin scroll;
+      - el panel empieza bajo el tablero y queda a ≥ 8 px de los lados;
+      - riel, cartel y tablero enteros a la vista;
+      - botón igual que antes, debajo;
+      - tamaños calculados 22 (o 20) y 18 px;
+      - cajas reales anotadas junto a la tabla de plan §17.6;
+    - contraste medido ≥ 4.5:1 en los dos textos sobre lo más claro que pasa por detrás tras la aparición: foco, haz, ámbar y realce del botón;
+    - entrada en el orden de RF-98 y estática con movimiento reducido (simulado como en T38);
+    - marcadores y su cuenta comprobados con el panel oculto en DevTools;
+    - RNF-12 sin tareas > 50 ms con el panel puesto;
+    - "Give feedback" pulsable desde el principio;
+    - consola limpia.
+  - Hecho (19/10/2026): `node --test` 643/643 en verde (6 tests nuevos en `tests/markup.test.js`). Comprobado en Chrome DevTools (servidor propio en 8094, `fetch` a supabase.co bloqueado por initScript, 0 peticiones bloqueadas: la intro no llama a Supabase).
+    - Cajas reales (px CSS; fuentes simuladas sustituyendo `--body` por `--sans`: mismas cajas y líneas que con Figtree):
+
+      | Pantalla | `--stage-w` | Plató (alto) | Panel (arriba / alto) | Panel − fin del tablero | Panel bajo el plató | Panel → botón | Scroll |
+      |---|---|---|---|---|---|---|---|
+      | 320×568 | 288 | 384 | 264,3 / 182,8 (RF-81 en 4 líneas a 20 px, RF-82 en 2 a 18 px) | +1,0 | +6,1 (paso 1 de RF-168) | 12 | no |
+      | 375×667 | 343 | 457,3 | 319,8 / 164,6 (3 + 2 líneas, 22 y 18 px) | +1,1 | −45,8 (dentro) | 57,8 | no |
+      | 375×568 | 343 | 457,3 | 270,3 / 164,6 | +1,1 | −45,8 | 57,8 | no |
+      | 430×568 | 354 (por alto) | 472 | 270,9 / 164,6 | +1,2 | −52,6 | 64,6 | no |
+      | 320×480 (regla < 568) | 225 | 300 | 178 / 232,2 | +0,8 | +94,2 | 12 | 10 px vertical (permitido) |
+    - Panel a 8 px de cada lado del plató en todas; riel, cartel y tablero enteros por encima del panel; botón igual (52 px, Figtree 700 16,8 px, dorado, radio 12), debajo.
+    - Contraste medido en capturas a 2x con los textos transparentes, píxel más claro dentro de la caja de cada texto, varias fases del bucle y el realce del botón congelado en su pico: RF-81 ≥ 11,66:1 y RF-82 ≥ 5,40:1 (peor caso = panel sobre blanco, 43,47,67); a 320×568 el realce queda detrás del panel (no aparece dorado).
+    - Entrada (rAF, opacidad ≥ 0,5): luces 219 ms, cartel 385, tablero 621, On air 816, suelo 955, personas 1170, panel 1385, RF-82 1538; marcadores cuentan de 0/0/0 a 300/500/200; botón opaco y habilitado desde el primer fotograma. Marcadores con el panel oculto: 3 `plato-screen` de 1,5 s infinitos y 300/500/200.
+    - Movimiento reducido simulado (`matchMedia` + `animation: none !important` inyectados antes del primer pintado): panel y RF-82 a opacidad 1 sin transformación desde el primer fotograma, ninguna animación, marcadores fijos.
+    - RNF-12 (375×667, sin limitar CPU, entrada + ~10 s de bucles con el panel): 0 tareas > 50 ms (máx. 37,3 ms); `longtask`: ninguna.
+    - Árbol de accesibilidad: título, RF-81, RF-82 y botón, en ese orden, una vez. Consola: solo el aviso "Skippable". Capturas en el scratchpad de la sesión.
+    - Nota: el test anterior de la entrada de los textos (T38) apuntaba a `.intro__thanks`; ahora apunta a `.intro__panel`, como manda plan §17.6 (el texto RF-81 entra con su panel).
+    - Nota: `.intro__panel` lleva `position: relative; z-index: 1` (no está en el plan) para pintarse encima del realce del botón, que si no se dibujaría sobre el fondo del panel; `.intro__scene` fija la primera fila de la rejilla al alto del plató, para que el exceso del panel vaya a la segunda; `@supports not (height: 100dvh)` da la misma `--stage-w` con `vh`.
+
+- [x] **T44b. Intro: panel alto en el plató (RF-81 arriba, RF-82 abajo, cerca del botón).** RF-80, RF-84, RF-88, RF-120, RF-121, RF-123, RF-150, RF-151, RF-167, RF-168, RNF-12 — ajuste 2026-10-19 aprobado por el usuario ("Osea yo haría el recuadro un poco más grande el texto blanco más arriba y el texto más gris si tiene que estar cerca del botón sabes"; duda 61 resuelta)
+  - Archivos (plan §17.12): solo `css/survey.css`:
+    - `.intro__panel`: `margin` (3/8 + 4px) 8px 0, `min-height` 23/24 − 12px, `box-sizing: border-box`, `padding: 16px 14px`, flex en columna con `space-between`;
+    - fuera el `margin-top` 0,72;
+    - comentario del bloque actualizado.
+    - `index.html` no cambia.
+  - Tests primero (en rojo): `tests/markup.test.js` según plan §17.12 (reglas CSS y la regla `max(A, Pmin)` con las 5 filas de la tabla); `tests/intro.test.js` y `tests/intro-entry.test.js` siguen en verde.
+  - Hecho cuando:
+    - `node --test` en verde;
+    - en Chrome DevTools (servidor propio, `supabase.co` bloqueado por initScript), con fuentes y con las fuentes bloqueadas o simuladas, a 320×568, 375×667, 375×568 y 430×568:
+      - cajas anotadas junto a la tabla de plan §17.12: plató, fila de categorías, panel, RF-81, RF-82 y botón;
+      - borde superior del panel a 4 px (±1) bajo la fila de categorías;
+      - borde inferior a 8 px (±1) sobre el fondo del plató (20 px hasta el botón);
+      - RF-81 a 16 px (±1) del borde superior del panel y RF-82 a 16 px (±1) del inferior, con ≥ 8 px entre ellos;
+      - riel, cartel y fila de categorías enteros a la vista; panel a ≥ 8 px de cada lado; sin scroll; botón igual que antes, 12 px bajo el plató;
+      - 320×480: el panel crece por debajo del plató, baja el botón y se permite scroll vertical (RF-168);
+    - contraste medido ≥ 4.5:1 en RF-81 y RF-82 tras la aparición, en las 4 pantallas, sobre:
+      - el realce blanco de una casilla del tablero en su pico;
+      - los números ámbar, el haz y los marcadores;
+      - el realce dorado del botón en su pico, detrás de RF-82;
+    - filas del tablero, atriles y marcadores (tapados) comprobados con el panel oculto: el recorrido de RF-120, el bucle de RF-121 y la cuenta de RF-123 siguen;
+    - entrada en el orden de RF-98, estática con movimiento reducido (simulado como en T44), sin saltos del panel (RF-102);
+    - RNF-12 sin tareas > 50 ms; "Give feedback" pulsable desde el principio; consola limpia;
+    - captura a 375×667 y a 320×568 en el scratchpad, para enseñársela al usuario.
+  - Hecho (19/10/2026): `node --test` 662/662 en verde (en `tests/markup.test.js` el test del `margin-top` 0,72 se sustituye por 3 tests: márgenes, `min-height` y `box-sizing`; relleno y flex; regla `max(A, Pmin)` con las 5 filas, constantes leídas del CSS). Comprobado en Chrome DevTools (servidor propio en 8096, `fetch` a supabase.co bloqueado por initScript, 0 peticiones bloqueadas).
+    - Cajas reales (px CSS desde el borde superior del plató; iguales a la tabla de plan §17.12):
+
+      | Pantalla | `--stage-w` | Plató H | Fin categorías | Panel (arriba-abajo) | Panel → fondo plató | Panel → botón | RF-81 (líneas) | RF-82 (líneas) | Hueco | Scroll |
+      |---|---|---|---|---|---|---|---|---|---|---|
+      | 320×568 | 288 | 384 | 108 | 112-376 | 8 | 20 | 128-232 (4, 20 px) | 313,2-360 (2) | 81,2 | no |
+      | 375×667 | 343 | 457,3 | 128,6 | 132,6-449,3 | 8 | 20 | 148,6-234,4 (3, 22 px) | 386,5-433,3 (2) | 152,1 | no |
+      | 375×568 | 343 | 457,3 | 128,6 | 132,6-449,3 | 8 | 20 | igual | igual | 152,1 | no |
+      | 430×568 | 354 | 472 | 132,8 | 136,8-464 | 8 | 20 | 152,8-238,5 (3) | 401,2-448 (2) | 162,7 | no |
+      | 320×480 | 225 | 300 | 84,4 | 88,4-328,5 (sale 28,6) | −28,6 | 12 | 104,4-234,4 (5) | 242,4-312,5 (3) | 8 | 0 px (permitido, no hace falta) |
+    - En todas: panel a 4,0 px de las categorías, 8 px a cada lado, RF-81 a 16 px del borde superior y RF-82 a 16 px del inferior; botón 52 px, Figtree 700 16,8 px, 12 px bajo el plató (a 320×480, 40,5 px, bajado por el panel).
+    - Fuente de reserva (forzada con `!important` en los dos textos): system-ui/Segoe UI y Arial dan las mismas líneas que Figtree; Verdana (+1 línea en RF-81) deja el hueco en 55,2 px a 320×568, 123,5 a 375×568 y 134,1 a 430×568; el panel no cambia de tamaño y no hay scroll.
+    - Contraste (capturas a 2x con los textos transparentes, píxel más claro dentro de la caja de cada texto, todo en el peor caso a la vez: las 13 casillas con el realce blanco a opacidad 1 (pico real 0,35), los marcadores a opacidad 1 (pico real 0,22), focos, "On air" y bombillas a 1, halos rojos y el realce dorado del botón congelado en su pico): RF-81 11,66:1 en las 4 pantallas (y a 320×480); RF-82 5,40:1 a 320×568 y 375×667, 5,37:1 a 375×568 y 430×568. La franja de 20 px del panel por la que entra el halo dorado da ≥ 5,31:1 con el color de RF-82.
+    - Panel oculto (430×568): las 13 casillas con `plato-cell` 5,2 s infinito, los 3 `plato-screen` de 1,5 s infinitos y la cuenta 0/0/0 → 300/500/200 terminada a 1846 ms.
+    - Entrada (rAF, opacidad ≥ 0,5): panel ~1380 ms y RF-82 ~1545 ms en las 4 pantallas; el alto y la posición del panel no cambian en ningún fotograma (solo el `translateY` de 6 px de la entrada). Movimiento reducido simulado (`matchMedia` + `animation: none !important` antes del primer pintado): panel y RF-82 a opacidad 1 sin transformación desde el primer fotograma, 0 animaciones, marcadores en 300/500/200.
+    - RNF-12 (375×667, sin limitar CPU, entrada + ~11 s de bucles): 0 `longtask`, ningún fotograma > 50 ms (máx. 21,1 ms). "Give feedback" opaco, habilitado y es el elemento pulsado en su centro desde el primer fotograma (10 ms).
+    - Árbol de accesibilidad: título, RF-81, RF-82 y botón, en ese orden. Consola: solo el aviso "Skippable". Capturas `t44b-intro-375x667.png` y `t44b-intro-320x568.png` en el scratchpad de la sesión.
+
+- [x] **T44c. Intro: "pregunta junto al botón" (sustituye la disposición de T44b).** RF-80, RF-88, RF-121, RF-123, RF-149 a RF-153, RF-167, RF-168, RF-170, RNF-4, RNF-12. Ajuste 2026-10-19 aprobado por el usuario ("Creo que es mejor dejar ambos textos con recuadros separados o como crees tú que se vería mejor para el usuario?" → "Pregunta junto al botón"). Dudas 63 y 64 resueltas por el usuario el 2026-10-20 con la opción (a) de cada una (la recomendación con la que se implementó): no cambia nada del CSS.
+  - Archivos (plan §17.13):
+    - `index.html`: `.intro__ask` sale de `.intro__panel` y de `.intro__scene` y queda justo antes del botón, sin cambiar textos;
+    - `css/survey.css`:
+      - `--ask-h` y `--stage-w` con `108px + var(--ask-h)`, también en `@supports`;
+      - `.intro__panel` con `margin` (3/8 + 4px) 8px 0 y `padding: 12px 14px`, sin `min-height` ni flex;
+      - `.intro__scene` con una sola fila;
+      - `.intro__ask` con `width: var(--stage-w)`, `margin: 4px auto -4px`, `position: relative; z-index: 1` y `text-shadow` de `--night`;
+      - `@media (max-height: 567px)` con `--stage-w: min(100vw - 32px, 398px)`;
+      - comentarios del bloque actualizados.
+  - Tests primero (en rojo): `tests/markup.test.js` según plan §17.13 (estructura, reglas CSS y la regla de `--stage-w` con los 5 tamaños); `tests/intro.test.js` y `tests/intro-entry.test.js` siguen en verde (se anota si alguno se adapta).
+  - Hecho cuando:
+    - `node --test` en verde;
+    - en Chrome DevTools (servidor propio, `supabase.co` bloqueado por initScript), con fuentes y con las fuentes bloqueadas o simuladas, a 320×568, 375×667, 375×568 y 430×568:
+      - cajas anotadas junto a las dos tablas de plan §17.13 (plató, fila de categorías, panel, RF-81, atriles, "On air", RF-82 y botón), con el número real de líneas de RF-81 y RF-82;
+      - `--stage-w` de 288, 343, 309,9 y 309,9 px (±1);
+      - borde superior del panel a 4 px (±1) bajo la fila de categorías;
+      - alto del panel = texto + 24 px (±1);
+      - borde inferior del panel ≥ 4 px sobre los atriles;
+      - RF-82 a 16 px (±1) bajo el plató y a 8 px (±1) sobre el botón, en 2 líneas (si sale en 3 con las fuentes bloqueadas, `--ask-h` pasa a 3 líneas, se repite la medición y se anota);
+      - sin scroll, y sin scroll horizontal;
+      - botón con la misma caja y estilo que en T44 (52 px, Figtree 700, dorado, radio 12);
+      - riel, cartel, fila de categorías, atriles, marcadores y pulsadores a la vista sin nada encima;
+      - se anota si "On air" queda tapado (duda 64);
+      - 320×480: plató de 288 px y scroll vertical permitido, con los atriles a la vista;
+    - contraste medido tras la aparición, en las 4 pantallas:
+      - RF-81 ≥ 4.5:1 sobre el realce blanco de una casilla en su pico, los números ámbar, el haz y "On air";
+      - RF-82 ≥ 4.5:1 sobre el fondo de la página y con el halo del botón congelado en su pico (RF-170, duda 63);
+    - marcadores contando de 0 a 300/500/200 en la entrada y con su bucle después, a la vista sin ocultar el panel (RF-121, RF-123);
+    - entrada en el orden de RF-98 (panel con RF-81, RF-82 y realce del botón), estática con movimiento reducido (simulado como en T44), sin saltos (RF-102);
+    - árbol de accesibilidad: RF-81, RF-82 y el botón, en ese orden, una vez cada uno;
+    - RNF-12 sin tareas > 50 ms; "Give feedback" pulsable desde el principio; consola limpia;
+    - capturas a 320×568, 375×667 y 375×568 en el scratchpad, para enseñárselas al usuario.
+  - Hecho (20/10/2026): `node --test` 662/662 en verde. Los tests de §17.13 en `tests/markup.test.js` (estructura; `--ask-h`/`--stage-w` con `@supports` y `@media (max-height: 567px)`; panel con margen 3/8 + 4px, relleno 12 px y sin `min-height`/flex; RF-82 con margen 4px / −4px, `z-index` y `text-shadow`; regla de `--stage-w` con los 5 tamaños y constantes leídas del CSS) sustituyen a los 3 de §17.12, por eso el total no cambia; `tests/intro.test.js` y `tests/intro-entry.test.js` sin cambios. La sesión anterior dejó el código y los tests hechos; en esta solo se actualizó el comentario de `.intro__scene` en `index.html`. Dudas 63 y 64 con la opción (a).
+    - Comprobado en el panel de navegador de Claude (no hay Chrome DevTools MCP en esta sesión): servidor propio en 8097 (script del scratchpad que reutiliza `scripts/serve.mjs` e inyecta en `index.html` el bloqueo de `fetch` a supabase.co/jsdelivr, en lugar del initScript); 0 peticiones bloqueadas y 0 a Supabase.
+    - Cajas reales (px CSS desde el borde superior del plató salvo RF-82 y botón, en px de página; iguales a las dos tablas de plan §17.13):
+
+      | Pantalla | `--stage-w` | Plató H (página) | Fin categorías | Panel (arriba-abajo, alto) | RF-81 (líneas) | "On air" | Atriles | Panel → atriles | RF-82 (página, líneas) | Plató → RF-82 / RF-82 → botón | Botón | Scroll |
+      |---|---|---|---|---|---|---|---|---|---|---|---|---|
+      | 320×568 | 288 | 384 (30,6-414,6) | 108 | 112-240 (128) | 104 (4, 20 px) | 220,3: tapado 100 % | 303,8 | 63,8 | 430,6-477,4 (2) | 16 / 8 | 485,4-537,4 | no |
+      | 375×667 | 343 | 457,3 (43,4-500,8) | 128,6 | 132,6-242,4 (109,8) | 85,8 (3, 22 px) | 262,4: a la vista (20 px libres) | 361,9 | 119,5 | 516,8-563,5 (2) | 16 / 8 | 571,5-623,5 | no |
+      | 375×568 | 309,9 | 413,2 (16-429,2) | 116,2 | 120,2-258,6 (138,4) | 114,4 (4, 22 px) | 237,1: tapado 100 % | 326,9 | 68,4 | 445,2-492 (2) | 16 / 8 | 500-552 | no |
+      | 430×568 | 309,9 | 413,2 (16-429,2) | 116,2 | 120,2-258,6 (138,4) | 114,4 (4) | 237,1: tapado 100 % | 326,9 | 68,4 | 445,2-492 (2) | 16 / 8 | 500-552 | no |
+      | 320×480 | 288 | 384 (16-400) | 108 | 112-240 | 4 | tapado | 303,8 (a la vista) | 63,8 | 416-462,8 (2) | 16 / 8 | 470,8-522,8 | 59 px (permitido) |
+    - En todas: panel a 4,0 px de las categorías, 8 px a cada lado, alto = RF-81 + 24; sin scroll horizontal; botón 52 px, Figtree 700 16,8 px, `rgb(246, 185, 59)`, radio 12 (ancho de la columna: 288, 343, 343 y 398 px, como en T44).
+    - Fuente de reserva (Verdana forzada con `!important`, la más ancha): RF-82 sigue en 2 líneas en las 4 pantallas (`--ask-h` no cambia); RF-81 gana una línea a 320×568, 375×568 y 430×568 (5) y a 375×667 (4); el panel acaba a 266, 271, 287,2 y 287,2 px y deja 37,8, 90,9, 39,8 y 39,8 px libres hasta los atriles; "On air" tapado un 72 % a 375×667 y entero en las otras; sin scroll.
+    - Duda 64: "On air" queda tapado a 320×568, 375×568 y 430×568 (y a 320×480), y a la vista a 375×667 (con Verdana, tapado un 72 %). Con el 85 % del panel se intuye detrás.
+    - Contraste (capturas 1:1, 320×568 reducida a 0,78; textos transparentes, píxel más claro en la caja de cada texto, todo a la vez: las 13 casillas con el realce blanco a opacidad 1, marcadores, focos, bombillas y "On air" a 1, y el halo del botón congelado en su pico `0 0 34px 6px` al 55 %): RF-81 10,72:1 (320×568), 10,21:1 (375×667), 10,23:1 (375×568) y 10,07:1 (430×568); RF-82, incluida la franja entre líneas por la que entra el halo, 4,76:1, 5,06:1, 4,85:1 y 4,85:1. Sobre la página, `--muted` sobre `--night` 8,0:1.
+    - Marcadores: contando (capturado "0 / 10 / 0" a mitad) y en 300/500/200 al final, con el panel a ≥ 37,8 px; 50 animaciones infinitas activas (bucles de casillas y marcadores).
+    - Entrada (animaciones en pausa y recorridas cada 20 ms con `currentTime`): panel a opacidad 0,5 a 1340 ms, RF-82 a 1500 ms y pico del halo del botón a 1700 ms; alto del panel constante y posición solo con los 6 px de `translateY`. Movimiento reducido simulado (`matchMedia` + `animation: none !important` antes del primer pintado): panel y RF-82 a opacidad 1 sin transformación, 0 animaciones, marcadores en 300/500/200.
+    - "Give feedback" opaco, habilitado y elemento pulsado en su centro en el tiempo 0. RNF-12: 0 `longtask` en la carga + 6 s; los tiempos de fotograma NO se pudieron medir porque el panel del navegador estaba en segundo plano (Chrome limita los fotogramas); queda para T45 o a mano.
+    - Accesibilidad: el `svg` tiene `aria-hidden="true"`, el panel no tiene `aria-`/`role` y el orden es título, RF-81, RF-82 y botón (DOM; el árbol de este MCP lista también el texto del `svg`, así que el árbol real queda para T45). Consola vacía.
+    - Capturas `t44c-intro-320x568.png`, `t44c-intro-375x667.png` y `t44c-intro-375x568.png` en el scratchpad de la sesión.
+
+- [x] **T45. Validación conjunta (001 + 002) y publicación.** Todos los RF y RNF del cambio (plan §17 y plan 002 §11)
+  - Requisitos: T39-T44 hechos, T44b y T44c hechas, **T42 confirmada por el usuario** y T11-T13 de la 002 hechas.
+  - Validación (skill sdd, empieza por VEREDICTO):
+    - `node --test` en verde;
+    - flujo completo a 375×667 y 320×568, intro → país → 10 preguntas, incluidos en Q3 1, 2 y 3 opciones, Back, atrás del sistema, recarga, el caso de RF-169 y cambio de respuesta → final; también con movimiento reducido, sin red y con las fuentes bloqueadas;
+    - /admin a 375 y 1280 px según el criterio de la 002 (con filas de prueba de Q3);
+    - RF por RF de las dos specs.
+  - Publicación, solo con VEREDICTO: APROBADO:
+    - prueba real contra Supabase, ya sin initScript: una fila de prueba con Q3 "AC" se guarda y se ve en /admin; luego se borra (guía, paso 6);
+    - **un solo commit y push** con la encuesta, el panel, la migración, el script y la guía;
+    - esperar a GitHub Pages (Actions en verde) y probar en la URL pública con la caché vaciada (propuesta 58).
+  - Cierre:
+    - specs 001 y 002 en "implementada";
+    - MEMORY.md (plan §17.7, §17.11);
+    - recordar al usuario que la propuesta 60 (AGENTS.md) sigue pendiente.
+  - Hecho cuando: VEREDICTO: APROBADO, push publicado y comprobado en Pages, y archivos de cierre actualizados.
+  - Hecho (20/10/2026): `node --test` 662/662. Revisión sin navegador: VEREDICTO: APROBADO. Navegador (Chrome DevTools, servidor propio en 8095, supabase.co simulado por initScript, 0 peticiones reales): VEREDICTO: APROBADO SALVO /admin con login real.
+    - Flujo completo a 375×667 y 320×568 con Q3 de 1, 2 y 3 opciones, Back, atrás del sistema, recarga, RF-169 por las tres vías y cambio de respuesta: 1 fila por participante y Q3 "AC"/"BC"/"ABC" tal cual en el envío. También con movimiento reducido simulado, sin red (stub que rechaza; al volver, 1 sola llamada y 1 fila) y sin fuentes (simulado quitando las `@font-face`).
+    - Intro de T44c a 320×568, 375×667, 375×568 y 430×568: igual que la tabla de T44c (±0,1 px), sin scroll.
+    - RNF-12 en primer plano: tarea máxima 34,8 ms, 0 `longtask`, INP 27 ms.
+    - Árbol real: título, RF-81, RF-82 y botón, una vez; `svg` `ignored`; Q3 `group` "Choose one or more" con `checkbox`.
+    - /admin a 375 y 1280 px con filas simuladas (A, AC, ABC, AB, BC, AD y sin responder): estadísticas, lista, búsqueda y los dos CSV correctos. Consola: solo el aviso "Skippable".
+    - Nota: `emulate` con Offline recarga la página y pierde el initScript; se usó un stub.
+    - Publicación: un solo commit y push el 20/10 por decisión del usuario ("cuando termines haz el commit and push para terminar"). La prueba real con Q3 "AC" contra Supabase y /admin con login real se omitió por decisión del usuario ("si vamos a saltarnolo, haz commit y push").

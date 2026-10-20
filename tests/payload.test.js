@@ -104,3 +104,21 @@ test("buildPayload: completed status is sent", () => {
 test("buildPayload: without a country there is nothing to save → throws", () => {
   assert.throws(() => buildPayload(localWith({})));
 });
+
+test("buildPayload: the multiple-choice Q3 'AC' is sent as it is (RF-37, RF-164)", () => {
+  const local = localWith({
+    screen: "question",
+    current: 4,
+    country: "NL",
+    answers: {
+      q1: { option: "A", text: null },
+      q2: { option: "B", text: null },
+      q3: { option: "AC", text: "the theme and the message" },
+    },
+    answered: ["q1", "q2", "q3"],
+  });
+  const { payload } = buildPayload(local);
+  assert.deepEqual(payload.p_answers.q3, { option: "AC", text: "the theme and the message" });
+  const all = buildPayload(localWith({ country: "NL", answers: { q3: { option: "ABC", text: null } } }));
+  assert.deepEqual(all.payload.p_answers.q3, { option: "ABC", text: null });
+});

@@ -1067,3 +1067,412 @@ Fuera de `node --test`, todo se comprueba con el MCP Chrome DevTools, como en §
   - estructura: `assets/fonts/` (woff2 + OFL);
   - regla: "sin servicios externos de fuentes ni de imágenes".
 
+## 17. Cambio de requisitos 2026-10-19: intro legible y Q3 de opción múltiple
+Cubre los RF y RNF modificados (RF-4, RF-17, RF-19, RF-20, RF-23, RF-37, RF-62, RF-80, RF-88, RF-96, RF-121, RF-123, RNF-4, RNF-7 y RNF-12) y los nuevos (RF-149 a RF-169), aprobados por el usuario el 2026-10-19 junto con las propuestas 46 a 59. La propuesta 60 no está aprobada: **no se toca AGENTS.md**. La parte del panel /admin está en `specs/002-admin/plan.md` §11 (tareas T11-T13 de la 002). Las dos specs se implementan juntas y se publican a la vez, después de la migración (§17.9).
+
+**Lo que no cambia**: RLS, permisos y políticas (RF-57 a RF-60, RF-66, RF-165), la sincronización y la cola local (`sync.js`, `sync-queue.js`), `persistence.js`, la ciudad, las transiciones, el final y el dibujo del plató. La forma de la fila y del envío se mantiene: `option` sigue siendo un texto, ahora "A", "AC", "ABC"… en Q3. No hay dependencias nuevas.
+
+### 17.1 Formato de Q3 en el navegador: un solo texto ordenado — RF-37, RF-161, RF-164
+- El borrador y la respuesta de Q3 guardan `option` como **el texto de letras ordenadas** ("A", "AC", "ABC") o `null` si no hay ninguna marcada. Es el mismo formato que va a la base de datos (duda 41, opción a).
+- **Decisión**: un texto en todo el recorrido (estado, almacenamiento local, envío, tabla, panel). **Descartado**: un array en el estado y pasarlo a texto al enviar, porque habría dos formatos que mantener sincronizados en `survey-state.js`, `payload.js`, `persistence.js` y el panel.
+- `payload.js` no cambia de código: envía `option` tal cual. Solo se amplían sus tests con "AC".
+
+### 17.2 Lógica pura nueva o ampliada (`js/lib/`) — RNF-7
+Igual que antes: sin DOM, red ni reloj.
+
+**`choice.js`** (nuevo, compartido con el panel) — RF-154, RF-155, RF-161, RF-164
+```
+MULTI_VALUES = ["A","B","C","AB","AC","BC","ABC"]            // los mismos 7 valores que la regla de la tabla (§17.4)
+isMultiple(question) → question.multiple === true
+lettersOf(value) → letras distintas del texto, en el orden en que aparecen ("AC" → ["A","C"]; "" o null → [])
+toggleLetter(value, letter, allLetters) → texto con `letter` añadida o quitada, ordenado según allLetters,
+  sin repeticiones; null si queda vacío          ("A","C" → "AC"; "AC","A" → "C"; "C","A" → "AC"; "A","A" → null)
+```
+
+**`content.js`** — RF-154, RF-166
+- `version: "2026-10-live-2"`.
+- Q3 lleva `multiple: true`. Las demás no llevan la propiedad.
+
+**`content-validate.js`** — RF-4 (propuesta 47)
+- Errores nuevos: "question q3 must be multiple choice", "question qN: only q3 can be multiple choice" y "question q3: multiple choice options must be normal".
+- `multiple`, si está, debe ser booleano.
+
+**`survey-state.js`** — RF-19, RF-20, RF-23, RF-26, RF-155, RF-158 a RF-163, RF-169
+```
+selectOption(state, content, letter):
+  si isMultiple(q) → draft.option = toggleLetter(draft.option, letter, letras de q)        (RF-155, RF-161)
+  si no → como hoy (sustituye)                                                              (RF-19)
+chosen(state, q) → para multi: lettersOf(draft.option) ∩ letras de q; para única: la opción como hoy
+fieldFor: para multi, "why" si hay ≥ 1 marcada, null si no                                   (RF-20, RF-158, RF-159)
+canGoNext: para multi, ≥ 1 marcada                                                          (RF-23)
+next: guarda { option: draft.option (ya ordenado), text } como hoy                          (RF-160, RF-163)
+settle(state, qid, content):                                                                (RF-169)
+  si isMultiple(q) y qid ∈ answered y draft.option es null
+    → drafts[qid] = { option: answers[qid].option, text: answers[qid].text ?? "" }
+  si no → state sin cambios
+back(state) / systemBack(state): settle(pregunta actual) y después n → n-1 como hoy
+resumeState: tras reconstruir, settle() de cada pregunta multi respondida (recarga en ese estado, RF-169)
+```
+- `back` y `systemBack` necesitan `content` para saber si la pregunta es múltiple: se les añade como segundo parámetro opcional. Sin `content` se comportan como hoy, así que los tests actuales siguen valiendo; `main.js` pasa `CONTENT`.
+- El texto escrito con todo desmarcado se conserva en el borrador mientras se sigue en la pregunta (RF-159). Si la pregunta no estaba respondida, `settle` no hace nada (borrador vacío conservado, RF-31).
+
+**`question-view.js`** — RF-17, RF-156, RF-157, RNF-4
+- La vista añade:
+  - `multiple: boolean`;
+  - `hint: "Choose one or more" | null`;
+  - `checkedLetters: string[]`;
+  - en cada opción, `checked` calculado por letra.
+- `checkedLetter` se mantiene para las de respuesta única. En multi vale `null`.
+- `optionForKey` solo se usa en las de respuesta única.
+- `FIELD_LABELS` no cambia.
+
+### 17.3 Interfaz de Q3 — RF-17, RF-96, RF-156, RF-157, RNF-4 (propuestas 48, 49, 57)
+- **`index.html`**: tras el `h1` de la pregunta, `<p class="question__hint" id="question-hint" hidden aria-hidden="true">`. Va oculto para el lector porque su texto llega una sola vez, como descripción del grupo.
+- **`js/app/screens/question.js`**:
+  - **Al pintar una pregunta nueva**:
+    - el contenedor `.options` pasa a `role="group"` con `aria-describedby="question-hint"` en multi, y a `role="radiogroup"` sin descripción en las de respuesta única;
+    - el aviso se muestra con el texto de `view.hint`.
+  - **Botones de opción**: `role="checkbox"` en multi y `role="radio"` en las demás, con `aria-checked` por letra.
+  - **Teclado en multi**: todas las opciones con `tabIndex = 0`, sin el manejador de flechas. El botón nativo ya marca con Espacio e Intro mediante `click`. Los botones no se recrean al marcar (solo cambian `aria-checked` y la clase), así que el foco se queda en la opción.
+  - **Marca visual**: en multi, `checkIcon()` se sustituye por `boxIcon()`, un cuadrado SVG de 20×20 con esquinas de 3 px. Sin marcar, solo borde. Marcada, relleno y marca de verificación.
+- **`css/survey.css`**:
+  - `.question__hint`: Figtree 400, 15 px, `--muted` sobre `--night` (6,7:1 aprox.), margen inferior de 8 px.
+  - `.option__box`:
+    - sin marcar: borde de 2 px de `--text` (≥ 3:1 sobre el azul noche del hexágono);
+    - marcada: dentro del hexágono dorado, cuadrado relleno de `--night` con la marca en dorado (el borde oscuro sobre el dorado da ≥ 3:1).
+  - En las de respuesta única, la marca actual no cambia.
+- **`js/app/main.js`**: `back(local.survey, CONTENT)` y `systemBack(local.survey, CONTENT)`.
+
+### 17.4 Base de datos: migración nueva — RF-62, RF-164, RF-165 (propuestas 51, 52, 59)
+Archivo nuevo: `supabase/migrations/002_q3_multiple.sql`. Se ejecuta **después** de `001_survey.sql`, entera, en una transacción y sin borrar datos.
+```
+begin;
+-- 1) Localiza la regla actual de q3 por su definición en el catálogo (nombre real; con el nombre por defecto de
+--    Postgres sería responses_q3_option_check, pero no se supone).
+do $$ declare c record; n int := 0; begin
+  for c in select conname from pg_constraint
+           where conrelid = 'public.responses'::regclass and contype = 'c'
+             and conname <> 'responses_q3_option_multi_check'
+             and pg_get_constraintdef(oid) ilike '%q3_option%'
+  loop execute format('alter table public.responses drop constraint %I', c.conname); n := n + 1; end loop;
+  raise notice 'q3 constraints dropped: %', n;      -- 1 la primera vez, 0 al repetir
+end $$;
+-- 2) Regla nueva con nombre propio (idempotente)
+alter table public.responses drop constraint if exists responses_q3_option_multi_check;
+alter table public.responses add constraint responses_q3_option_multi_check
+  check (q3_option in ('A','B','C','AB','AC','BC','ABC'));
+-- 3) save_response re-creada: el mismo cuerpo que en 001, cambiando SOLO la validación de la opción:
+--    i = 3 → (v_option #>> '{}') in ('A','B','C','AB','AC','BC','ABC'); resto → in ('A','B','C')
+--    owner, revoke y grant iguales que en 001 (execute a anon y authenticated)
+commit;
+notify pgrst, 'reload schema';
+```
+- **Antes de ejecutarla** (paso de la guía): consulta de solo lectura `select conname, pg_get_constraintdef(oid) from pg_constraint where conrelid = 'public.responses'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%q3%';`. Debe dar exactamente 1 fila. El usuario anota el nombre en la tarea T42. Si da 0 o más de 1, se para y se pregunta.
+- Las filas existentes ya cumplen la regla nueva, porque una letra es uno de los 7 valores: `add constraint` las valida sin cambiar nada (RF-165).
+- **`001_survey.sql`**: no cambia su SQL. Solo se añade en la cabecera un comentario: "Después de este archivo, aplicar siempre `002_q3_multiple.sql`. Si se vuelve a ejecutar este archivo, ejecutar a continuación la 002 (si no, `save_response` vuelve a aceptar solo una letra)".
+- **Decisión**: buscar la regla en el catálogo y crear una con nombre propio. **Descartado**: `drop constraint responses_q3_option_check` a ciegas, que fallaría o no haría nada si el nombre real es otro (punto 3 de la revisión QA).
+- **Decisión**: repetir entero el cuerpo de `save_response` en la 002. **Descartado**: editar la 001 para que sea la única fuente, porque la 001 ya está aplicada y ese cambio no se aplicaría solo.
+
+### 17.5 Comprobación de la base de datos (`scripts/check-db.mjs`) — RF-62, RF-164 (propuesta 52)
+- **Casos que deben guardarse** (Q3): "A", "AC", "BC", "ABC".
+- **Casos que deben rechazarse con 400**:
+  - en Q3: "", "CA", "AA", "AD", "ABCD" y "ac";
+  - en otra pregunta: q1 "AB".
+- **Fila completa**: además se guarda una con Q3 "AB" y status `completed`.
+- Las filas siguen usando `content_version` "dbcheck…" y se borran después (guía, paso 6).
+- **Cuándo se ejecuta**: tras la migración. Antes de ella, los casos "AC", "BC", "ABC" y "AB-completed" fallan; así se ve si la migración no está aplicada.
+
+### 17.6 Intro: textos grandes sobre el plató — RF-80, RF-88, RF-149 a RF-153, RF-167, RF-168, RNF-12 (propuestas 46, 54 a 56)
+**Estructura (`index.html`)**: los dos `<p>` pasan dentro del bloque del plató, y el botón queda fuera.
+```
+<section class="screen screen--intro">
+  <div class="intro__scene">
+    <div class="plato">…svg sin cambios…</div>
+    <div class="intro__panel"><p class="intro__thanks">…</p><p class="intro__ask">…</p></div>
+  </div>
+  <button … data-action="start">Give feedback</button>      ← sin cambios (RF-152)
+</section>
+```
+El orden de lectura es el mismo: plató (oculto), RF-81, RF-82 y botón (RNF-4).
+
+**Medidas explícitas, sin JS (`css/survey.css`)**. Sustituyen el `flex` del plató de §14.4:
+```
+.screen--intro { --stage-w: min(100vw - 32px, 398px, (100dvh - 96px) * 3 / 4); }
+   96 px = 16 (arriba) + 16 (abajo) + 52 (botón) + 12 (separación); el término en dvh es el paso (2) de RF-168
+.intro__scene { display: grid; width: var(--stage-w); margin-inline: auto; }
+.plato  { grid-area: 1 / 1; width: var(--stage-w); height: calc(var(--stage-w) * 4 / 3); }
+.intro__panel { grid-area: 1 / 1 / 3 / 2;              ← ocupa la fila del plató y la de debajo
+  margin-top: calc(var(--stage-w) * 0.72);              ← fin del tablero: 54 % del alto = 0,72 del ancho (sustituido por §17.12, aprobado por el usuario)
+  margin-inline: 8px; align-self: start;                ← RF-167
+  background: rgb(6 10 34 / .85); border-radius: 12px; padding: 12px 14px; }
+```
+- La segunda fila de la rejilla (`auto`) solo crece si el panel pasa del borde inferior del plató: es el paso (1) de RF-168, que alarga el panel por debajo y baja el botón.
+- Por debajo de 568 px de alto se mantiene el `@media (max-height: 567px)` con un plató de 300 px de alto (`--stage-w: 225px`) y scroll vertical (paso 3).
+- Sin `backdrop-filter`, para no tener que medir un desenfoque en RNF-12 (propuesta 56).
+- **Decisión**: CSS con el ancho del plató en una variable y el panel superpuesto en la misma celda de la rejilla. **Descartado**: medir el panel con JS y recolocar, porque movería el plató durante su entrada (RF-102) y en movimiento reducido daría un salto.
+
+**Tipografía**:
+- `.intro__thanks`: Figtree 600, 22 px (`@media (max-width: 374px)`: 20 px), interlineado 1,3, `--text`.
+- `.intro__ask`: Figtree 400, 18 px, interlineado 1,3, `--muted`.
+- Separación de 8 px entre los dos textos.
+
+**Cálculo con estas medidas** (el implementer lo comprueba en DevTools y anota las cajas reales):
+
+| Pantalla | `--stage-w` | Plató (alto) | Bajo el tablero | Panel estimado | Hueco libre de la columna | ¿Cabe? |
+|---|---|---|---|---|---|---|
+| 320×568 | 288 | 384 | 177 | 195-220 (fuente de reserva: ≈ 245) | 536 − 384 − 64 = 88 | sí: sale 18-68 px por debajo, dentro de los 88 |
+| 375×667 | 343 | 457 | 210 | ≈ 190 | 635 − 457 − 64 = 114 | sí, dentro del plató |
+| 375×568 | 343 | 457 | 210 | ≈ 190 | 15 | sí, dentro del plató |
+| 430×568 | 354 (por alto) | 472 | 217 | ≈ 190 | 0 | sí, dentro del plató |
+
+El panel a 320 px mide 272 px de ancho (264 de texto con el relleno): unas 24 letras por línea a 20 px, es decir 4 líneas × 26 px para RF-81, más 2-3 líneas × 23 px para RF-82, más 8 px de separación y 24 px de relleno.
+
+**Contraste (RF-151)**: el texto se mide sobre el color resultante del panel al 85 % encima de lo más claro que puede pasar por detrás.
+- Sobre blanco: unos (43, 47, 67).
+- Sobre el foco #FFE9A8: unos (43, 42, 54).
+- Sobre el realce dorado del botón: más oscuro aún.
+
+Con eso, `--text` #eef0ff da unos 13:1 y `--muted` #9aa3d6 unos 5,3:1, por encima de 4.5:1. La validación lo mide con el selector de color de DevTools.
+
+**Entrada y movimiento reducido (RF-153)**:
+- El panel usa la misma animación `intro-enter` con `--enter-thanks-start` y `--enter-thanks-dur`, y los textos dentro de él no se animan aparte (se quita su `animation`).
+- La única excepción es `.intro__ask`, que conserva su retraso de 150 ms con un fundido de opacidad solo dentro del panel ya visible. Así el orden de RF-98 se mantiene.
+- Con movimiento reducido, la regla global `animation: none` lo deja todo estático.
+- `INTRO_ENTRY` en `intro-entry.js` no cambia: el test que compara sus valores con el CSS sigue valiendo.
+
+### 17.7 Documentación — propuesta 59
+- **`docs/supabase.md`, §2 "Aplicar el SQL"**: orden de las migraciones (001 y después 002), con la advertencia de §17.4 sobre volver a ejecutar la 001.
+- **`docs/supabase.md`, §2.1 nuevo "Cambio de Q3 (2026-10-19)"**, con estos pasos:
+  1. consulta de solo lectura del nombre de la regla;
+  2. pegar y ejecutar `002_q3_multiple.sql` en el SQL Editor (Run), y ver el aviso "q3 constraints dropped: 1";
+  3. comprobar con `select conname, pg_get_constraintdef(oid) from pg_constraint where conrelid = 'public.responses'::regclass and contype = 'c' and pg_get_constraintdef(oid) ilike '%q3%';` que solo queda `responses_q3_option_multi_check`;
+  4. `node scripts/check-db.mjs` en verde;
+  5. borrar las filas `dbcheck…`.
+- **`docs/supabase.md`, §6 "Borrar las filas de prueba"**: añadir las filas de `content_version = '2026-10-live-1'` (las de antes del cambio y las que cree un navegador con la encuesta antigua en caché).
+- **`MEMORY.md`**, al cerrar:
+  - formato de Q3 ("A", "AC", "ABC");
+  - versión "2026-10-live-2";
+  - orden de las migraciones y del despliegue;
+  - trampa: volver a ejecutar la 001 deshace el cambio.
+
+### 17.8 Tests (`node --test`) — primero en rojo
+- `tests/choice.test.js` (nuevo):
+  - `toggleLetter`: añadir, quitar, orden (C, luego A → "AC"), quitar la última → null, repetir y letra fuera de la pregunta;
+  - `lettersOf`;
+  - `MULTI_VALUES` con los 7 valores.
+- `tests/content.test.js`: versión "2026-10-live-2", Q3 `multiple: true` y la validación en verde.
+- `tests/content-validate` (dentro de `content.test.js`, donde están hoy):
+  - error si Q3 no es múltiple;
+  - error si otra pregunta lo es;
+  - error si una opción de Q3 no es normal;
+  - error si `multiple` no es booleano.
+- `tests/survey-state.test.js`:
+  - marcar 1, 2 y 3 y desmarcar en Q3 sin tocar las demás;
+  - el orden;
+  - Q1 sigue siendo de respuesta única;
+  - "Next" con 0/1/2/3;
+  - campo "why" con ≥ 1 y null con 0, con el texto conservado;
+  - `next` guarda "AC" y enciende solo "museum";
+  - cambio de respuesta de "ABC" a "B";
+  - RF-169:
+    - Q3 respondida "AC", desmarcar todo, `back` → borrador "AC" con su texto;
+    - igual con `systemBack`;
+    - igual con `resumeState`;
+    - Q3 sin responder, desmarcar todo, `back` → borrador vacío conservado y no respondida;
+  - sin `content`, `back` se comporta como hoy.
+- `tests/question-view.test.js`: `multiple`, `hint` solo en Q3, `checked` por letra y `checkedLetter` null en multi.
+- `tests/payload.test.js`: Q3 "AC" va tal cual en `p_answers.q3.option`.
+- `tests/migration.test.js`, ampliado con `002_q3_multiple.sql`:
+  - no hay `grant` a anon salvo `execute` en `save_response`;
+  - no aparece `disable row level security`;
+  - la regla `responses_q3_option_multi_check` tiene exactamente los 7 valores;
+  - se busca en `pg_constraint` por definición;
+  - en `save_response` la rama de i = 3 tiene los 7 valores y la otra A/B/C;
+  - `security definer` y `search_path = ''`;
+  - `begin`/`commit`;
+  - el comentario de orden en la cabecera de la 001.
+- `tests/markup.test.js`:
+  - los dos textos dentro de `.intro__panel`, dentro de `.intro__scene` y después del `svg`;
+  - el botón fuera de `.intro__scene`;
+  - `#question-hint` con `aria-hidden`;
+  - CSS de la intro: `.intro__thanks` ≥ 22 px y ≥ 20 px por debajo de 375, `.intro__ask` ≥ 18 px, panel con `margin-inline` ≥ 8 px y `margin-top` 0,72 del ancho, y sin `backdrop-filter`.
+- Lo visual (contraste medido, cajas, lector de pantalla y teclado) se valida en el navegador (T46).
+
+### 17.9 Orden de despliegue — propuesta 51
+1. Código y tests en local (T39-T41, T43-T45 y T11-T13 de la 002), sin publicar. En las pruebas en el navegador se bloquea `supabase.co` por initScript, como en cambios anteriores, para no escribir filas de la versión nueva antes de tiempo.
+2. **[USUARIO]** Migración aplicada y comprobada (T42).
+3. Validación conjunta (T46). Después, **un solo commit y push** con la encuesta y el panel juntos. Nunca push antes de T42.
+4. Tras el push, esperar a que GitHub Pages termine de desplegar (Actions en verde) y probar con la caché vaciada (riesgo de caché mezclada aceptado, propuesta 58).
+
+### 17.10 Cobertura del cambio
+| Parte | RF / RNF |
+|---|---|
+| choice.js + content.js + content-validate.js | RF-4, RF-154, RF-161, RF-164 (formato), RF-166 |
+| survey-state.js + question-view.js | RF-17, RF-19, RF-20, RF-23, RF-26, RF-155 a RF-163, RF-169 |
+| question.js + index.html + CSS de las casillas y el aviso | RF-96, RF-156, RF-157, RNF-4 |
+| 002_q3_multiple.sql + check-db.mjs + guía | RF-37, RF-62, RF-164, RF-165 |
+| Intro: estructura, CSS, panel y tipografía | RF-80, RF-88, RF-121, RF-123, RF-149 a RF-153, RF-167, RF-168, RNF-12 |
+| Tests | RNF-7 |
+
+### 17.11 Al cerrar el cambio
+- MEMORY.md según §17.7. La spec vuelve a "implementada" solo tras el APROBADO.
+- AGENTS.md **no** se toca (propuesta 60 pendiente). Se recuerda al usuario que sigue pendiente.
+
+### 17.12 Ajuste 2026-10-19: panel alto en el plató (T44b) — **SUPERADO por §17.13** ("pregunta junto al botón"); se conserva como historia
+Cita del usuario: "Osea yo haría el recuadro un poco más grande el texto blanco más arriba y el texto más gris si tiene que estar cerca del botón sabes". Sustituye el `margin-top: calc(var(--stage-w) * 0.72)` de §17.6 (panel bajo el tablero, implementado en T44) y el borrador anterior de esta sección, que centraba el panel con ±8 px. El resto de §17.6 no cambia: tipografía, fondo al 85 %, sin `backdrop-filter`, entrada y `z-index`.
+
+**Medidas del plató** (viewBox 300 × 400, escala s = `--stage-w` / 300):
+- borde inferior de la fila de categorías: y = 112,5 → **3/8 × `--stage-w`**; hueco hasta la fila 100: 112,5-117,5;
+- fila 100: 117,5-142,5; fila 200: 147,5-172,5; fila 300: 177,5-202,5; fin del tablero: 215;
+- cabezas de los concursantes desde 266; atriles 316,5-374,5; marcadores 332,2-350,4; pulsadores hasta 366,3;
+- alto del plató H = 4/3 × `--stage-w`.
+
+**Regla** (RF-150, RF-168):
+- T0 = 3/8 × `--stage-w` + 4 px (borde superior);
+- alto mínimo A = H − 8 − T0 = **23/24 × `--stage-w` − 12 px** (borde inferior a 8 px sobre el fondo del plató);
+- Pmin = contenido + 32 px de relleno (16 + 16). Alto del panel = max(A, Pmin). Si T0 + Pmin > H, la segunda fila de la rejilla crece y baja el botón (paso 1).
+
+**Cómo se pinta, sin JS y sin envoltorio (`css/survey.css`; `index.html` no cambia)**:
+```
+.intro__panel { grid-area: 1 / 1 / 3 / 2; align-self: start;            ← como en T44
+  box-sizing: border-box;
+  margin: calc(var(--stage-w) * 3 / 8 + 4px) 8px 0;                       ← T0 y 8 px a los lados (RF-167)
+  min-height: calc(var(--stage-w) * 23 / 24 - 12px);                      ← A
+  padding: 16px 14px;                                                     ← antes 12px 14px
+  display: flex; flex-direction: column; justify-content: space-between; }
+.intro__ask { margin-top: 8px; }                                          ← sin cambios: separación mínima
+```
+- Si el contenido cabe, el panel mide A: borde inferior a H − 8, RF-81 pegado arriba, RF-82 pegado abajo y el sobrante entre los dos (`space-between`).
+- Si no cabe, `min-height` deja que crezca hacia abajo desde T0; si pasa de H, la fila `auto` crece y baja el botón (RF-168, paso 1). Nunca sube sobre las categorías.
+- El paso 2 (plató más pequeño por el término en `dvh`) y el `@media (max-height: 567px)` (paso 3, `--stage-w: 225px`) no cambian: las dos medidas dependen de `--stage-w`.
+- El orden de lectura no cambia (RNF-4). La animación `intro-enter` sigue en `.intro__panel` (RF-153). El fundido de `.intro__ask` no cambia.
+- **Decisión**: `min-height` + flex `space-between` en el propio panel. **Descartados**:
+  - (1) dar al panel un alto fijo (`height`), porque con la fuente de reserva el texto se saldría del fondo;
+  - (2) un envoltorio con márgenes `auto` (borrador anterior), que ya no hace falta sin centrado;
+  - (3) medir con JS, porque movería el panel durante la entrada (RF-102).
+
+**Cálculo con las cajas reales de T44** (px CSS desde el borde superior del plató; contenido = P de T44 − 24 de relleno antiguo; Pmin = contenido + 32; el botón empieza 12 px bajo el plató):
+
+| Pantalla | `--stage-w` | Plató H | Fin categorías | Panel arriba (T0) | Pmin / A | Panel abajo | Panel → fondo del plató | Panel → botón | RF-81 (caja) | RF-82 (caja) | Hueco entre textos | Scroll |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 320×568 | 288 | 384 | 108 | 112 | 190,8 / 264 | 376 | 8 | 20 | 128-232 (4 líneas) | 313,2-360 (2) | 81,2 | no (el botón sube 6 px respecto a T44) |
+| 375×667 | 343 | 457,3 | 128,6 | 132,6 | 172,6 / 316,7 | 449,3 | 8 | 20 | 148,6-234,4 (3) | 386,5-433,3 (2) | 152,1 | no |
+| 375×568 | 343 | 457,3 | 128,6 | 132,6 | 172,6 / 316,7 | 449,3 | 8 | 20 | igual | igual | 152,1 | no |
+| 430×568 | 354 | 472 | 132,8 | 136,8 | 172,6 / 327,3 | 464 | 8 | 20 | 152,8-238,6 (3) | 401,2-448 (2) | 162,6 | no |
+| 320×480 (< 568) | 225 | 300 | 84,4 | 88,4 | 240,2 / 203,6 | 328,6 | −28,6 (sale) | 12 | — | — | 8 | permitido (RF-168 pasos 1 y 3) |
+
+- Fuente de reserva con una línea más (≈ +25 px, peor caso de §17.6): a 320×568 Pmin ≈ 216 < 264 y el hueco baja a unos 56 px; a 375 px Pmin ≈ 198 < 317. **Cabe en los 4 tamaños de 568 px de alto o más sin scroll y sin el paso (1).**
+- El alto total de la columna es el de T44 sin el exceso del panel: plató + 12 + botón, como antes de este cambio.
+
+**Qué queda tapado** (coordenadas del plató ÷ s; el panel cubre de 116 a 392 en las 4 pantallas):
+- tapado: fila 100 entera (sin filas cortadas, duda 61 (b)), filas 200 y 300, fin del tablero, haces bajos, postes, "On air", borde del escenario, suelo, concursantes, atriles con "Group n", marcadores y pulsadores;
+- a la vista: riel con los focos, cartel, fila de categorías, el arranque de los haces superiores, dos franjas de 8 px a los lados (pared y suelo) y una franja de 8 px de suelo abajo.
+
+**Contraste (RF-151)**:
+- Lo más claro que puede pasar por detrás sigue siendo blanco: el realce `.plato__cell-glow`, relleno `#fff`, en su pico. El panel al 85 % sobre blanco da (43, 47, 67), el mismo peor caso de §17.6, en el que T44 midió RF-81 ≥ 11,66:1 y RF-82 ≥ 5,40:1.
+- El realce dorado del botón vuelve a quedar detrás de la parte baja del panel: entra 22 px en el plató y el panel acaba a 8 px del fondo. Sobre dorado el panel es más oscuro que sobre blanco, pero se mide en su pico detrás de RF-82.
+- También se miden en las 4 pantallas: el realce de una casilla, los números ámbar `#FFB400`, el haz y los marcadores.
+
+**Tests (`node --test`), primero en rojo** (`tests/markup.test.js`; sustituyen la comprobación de `margin-top` 0,72 de §17.8):
+- estructura de T44 sin cambios: los dos textos dentro de `.intro__panel`, dentro de `.intro__scene`, después del `svg`; el botón fuera;
+- `.intro__panel`:
+  - `margin-top` = `--stage-w` × 3/8 + 4px y `margin-inline` ≥ 8 px;
+  - `min-height` = `--stage-w` × 23/24 − 12px y `box-sizing: border-box`;
+  - `padding` de 16 px arriba y abajo;
+  - `display: flex`, `flex-direction: column` y `justify-content: space-between`;
+  - sin `height` fija ni `backdrop-filter`;
+- `.intro__ask` con `margin-top` ≥ 8 px;
+- un test de la regla con los números de la tabla: función de prueba `alto = max(23/24·w − 12, Pmin)`, `abajo = T0 + alto`, sobre las 5 filas. Las constantes 3/8, 4, 23/24 y 12 se leen del CSS, para que un cambio rompa el test;
+- `tests/intro.test.js` y `tests/intro-entry.test.js` siguen en verde sin cambios.
+- Lo visual (cajas, distancias, contraste, captura) se valida en el navegador en T44b.
+
+**Cobertura**: CSS de `.intro__panel` → RF-80, RF-150, RF-167, RF-168; medición en el navegador → RF-84, RF-120, RF-121, RF-123, RF-151; tests → RNF-7.
+
+### 17.13 Ajuste 2026-10-19: pregunta junto al botón (T44c) — RF-80, RF-88, RF-121, RF-123, RF-150, RF-151, RF-152, RF-167, RF-168, RF-170 (propuestas 54, 55, 62; dudas 63 y 64) — aprobado por el usuario
+Pregunta del usuario: "Creo que es mejor dejar ambos textos con recuadros separados o como crees tú que se vería mejor para el usuario?". Elige "Pregunta junto al botón". Sustituye la disposición de §17.12 (T44b). Se mantienen de §17.6 la tipografía, el fondo del panel al 85 %, la ausencia de `backdrop-filter`, la entrada y el `z-index` del panel.
+
+**Estructura (`index.html`)**: `.intro__ask` sale del panel y del plató y pasa a ser hermano directo entre `.intro__scene` y el botón. El botón no cambia ni de elemento ni de sitio en el DOM (RF-152).
+```
+<section class="screen screen--intro">
+  <div class="intro__scene">
+    <div class="plato">…svg sin cambios…</div>
+    <div class="intro__panel"><p class="intro__thanks">…</p></div>
+  </div>
+  <p class="intro__ask">Do you want to help us with our new assignment?</p>
+  <button … data-action="start">Give feedback</button>
+</section>
+```
+El orden de lectura no cambia: RF-81, RF-82 y el botón (RNF-4).
+
+**CSS (`css/survey.css`)**:
+```
+.screen--intro { gap: 12px;                                               ← sin cambios
+  --ask-h: calc(18px * 1.3 * 2);                                          ← 46,8 px: 2 líneas de RF-82 reservadas
+  --stage-w: min(100vw - 32px, 398px,
+                 (100dvh - 108px - var(--ask-h) - env(safe-area-inset-bottom)) * 3 / 4); }
+   108 = 16 arriba + 16 abajo + 16 plató→RF-82 + 8 RF-82→botón + 52 botón (las dos separaciones salen del gap de 12 ± 4)
+   (también en el @supports con vh)
+.intro__panel { grid-area: 1 / 1; align-self: start;
+  margin: calc(var(--stage-w) * 3 / 8 + 4px) 8px 0;                       ← 4 px bajo las categorías, 8 px a los lados
+  padding: 12px 14px; }                                                   ← sin min-height, sin flex: alto = contenido + 24
+.intro__ask { width: var(--stage-w); margin: 4px auto -4px;               ← gap 12 + 4 = 16 bajo el plató; 12 − 4 = 8 sobre el botón
+  position: relative; z-index: 1;                                         ← se pinta encima del halo del botón
+  text-shadow: 0 0 2px var(--night), 0 0 6px var(--night); }              ← duda 63, opción (a)
+@media (max-height: 567px) { .screen--intro { height: auto; --stage-w: min(100vw - 32px, 398px); } }   ← antes 225px
+```
+- `.intro__scene` vuelve a una sola fila del alto del plató, porque el panel ya nunca sale de él.
+- `.intro__ask` mantiene su fundido de entrada (`intro-fade`, 1350 ms). Ahora va solo, fuera del panel. El orden de RF-98 se mantiene: panel con RF-81, RF-82 y el realce del botón.
+- **Decisión**: RF-82 como hermano del botón, con márgenes de 4 / −4 px sobre el `gap` de 12 px. **Descartados**:
+  - (1) un envoltorio `.intro__cta` con RF-82 y el botón: el botón cambiaría de contenedor y podría cambiar su ancho (RF-152);
+  - (2) calcular `--stage-w` sin reservar el alto de RF-82, porque el plató no se reduciría y habría scroll a 568 px de alto;
+  - (3) el plató de 225 px por debajo de 568 px de alto, porque a ese tamaño el panel de RF-81 (unas 6 líneas a 181 px) taparía los atriles (RF-167).
+
+**Encaje de la columna** (px de página; columna = alto − 32; contenido = H + 16 + 46,8 + 8 + 52 = H + 122,8; la columna centra el sobrante):
+
+| Pantalla | `--stage-w` (cuál manda) | Plató H | Plató (arriba-abajo) | RF-82 (2 líneas) | Botón | Sobrante | Scroll |
+|---|---|---|---|---|---|---|---|
+| 320×568 | 288 (ancho) | 384 | 30,6-414,6 | 430,6-477,4 | 485,4-537,4 | 29,2 | no |
+| 375×667 | 343 (ancho) | 457,3 | 43,5-500,8 | 516,8-563,6 | 571,6-623,6 | 54,9 | no |
+| 375×568 | 309,9 (alto; antes 343) | 413,2 | 16-429,2 | 445,2-492 | 500-552 | 0 | no |
+| 430×568 | 309,9 (alto; antes 354) | 413,2 | 16-429,2 | 445,2-492 | 500-552 | 0 | no |
+| 320×480 (< 568) | 288 (ancho) | 384 | igual que 320×568 | | | −58,8 | sí, 59 px (permitido) |
+
+- RF-82 a 18 px tiene unos 47 caracteres y ocupa 2 líneas con 288-310 px de ancho, con Figtree (unos 8,5 px por carácter) y con la fuente de reserva (unos 9,5 px). **Riesgo**: si con las fuentes bloqueadas saliera en 3 líneas, a 375×568 y 430×568 habría unos 23 px de scroll. En ese caso `--ask-h` pasa a 3 líneas (el plató bajaría a unos 292 px) y se anota en T44c.
+
+**Panel de RF-81 sobre el plató** (px desde el borde superior del plató; s = `--stage-w` / 300; "On air" empieza en y = 229,5; postes en 241; cabezas en 266; atriles en 316,5):
+
+| Pantalla | Fin categorías | Panel arriba | RF-81 | Panel alto / abajo | "On air" (arriba) | Atriles (arriba) | Hueco panel → atriles |
+|---|---|---|---|---|---|---|---|
+| 320×568 | 108 | 112 | 4 líneas a 20 px (medido en T44) | 128 / 240 | 220,3 → tapado | 303,8 | 63,8 |
+| 375×667 | 128,6 | 132,6 | 3 líneas a 22 px (medido) | 109,8 / 242,4 | 262,4 → a la vista (20 px libres) | 361,9 | 119,5 |
+| 375×568 y 430×568 | 116,2 | 120,2 | 4 líneas a 22 px (estimado: 266 px de texto) | 138,4 / 258,6 | 237,1 → tapado | 326,9 | 68,3 |
+
+- Si a 310 px RF-81 cupiera en 3 líneas, el panel acabaría a 230 px y "On air" se vería con 7 px libres.
+- Con la fuente de reserva y una línea más (+26 a +29 px), el panel acaba a 266, 271 y 287 px. Tapa lo alto de algunas cabezas, y "On air" también a 375×667. Los atriles siguen libres con 38, 90 y 40 px.
+- **Tapado**: filas 100-300, fin del tablero, haces y, según la pantalla, "On air", lo alto de los postes y lo alto de las cabezas (duda 64).
+- **Siempre a la vista**: riel, cartel, fila de categorías, concursantes (casi enteros), atriles, marcadores y pulsadores (RF-121, RF-123, RF-167).
+
+**Contraste**:
+- RF-151 (RF-81): peor caso, el blanco del realce de las casillas. Con el panel al 85 % sale (43, 47, 67), y T44 midió ≥ 11,66:1. Ya no hay halo del botón detrás del panel.
+- RF-170 (RF-82): `--muted` sobre `--night` da 8,0:1 (medido en el proyecto).
+- Halo del botón en su pico (`0 0 34px 6px` dorado al 55 %): sin protección, el gris quedaría por debajo de 2:1. Con la sombra oscura de las letras (duda 63 (a)), lo que hay justo detrás del texto es `--night`. Se mide en T44c, con el halo congelado en su pico. Si el usuario elige (b) o (c) en la duda 63, se cambia solo esa línea del CSS.
+
+**Tests (`node --test`), primero en rojo** (`tests/markup.test.js`; sustituyen los de §17.12):
+- **Estructura**:
+  - `.intro__thanks`, solo, dentro de `.intro__panel`, dentro de `.intro__scene`, después del `svg`;
+  - `.intro__ask` fuera de `.intro__scene`, justo antes del botón;
+  - el botón sigue siendo hijo directo de la sección.
+- **CSS**:
+  - `--ask-h` de 2 líneas de 18 px × 1,3;
+  - `--stage-w` con el término `100dvh - 108px - var(--ask-h)` (y su versión `vh`);
+  - `.intro__panel` con `margin-top` 3/8 + 4px, laterales ≥ 8 px y `padding` de 12 px en vertical, sin `min-height`, `height` ni `backdrop-filter`;
+  - `.intro__ask` con `margin` 4px / −4px, `z-index` y `text-shadow`;
+  - `@media (max-height: 567px)` sin `225px`.
+- **Regla**: función de prueba `w = min(vw − 32, 398, (vh − 108 − 46,8) · 3/4)` sobre los 5 tamaños de la tabla (288; 343; 309,9; 309,9; 288), con `H + 122,8 ≤ vh − 32` en los 4 de 568 px de alto o más. Las constantes se leen del CSS.
+- `tests/intro.test.js` y `tests/intro-entry.test.js` siguen en verde. Si alguno apunta a `.intro__ask` dentro del panel, se adapta y se anota.
+
+**Cobertura**:
+- estructura y CSS → RF-80, RF-150, RF-152, RF-167, RF-168, RF-170;
+- medición en el navegador → RF-88, RF-121, RF-123, RF-151, RF-170;
+- tests → RNF-7.
+

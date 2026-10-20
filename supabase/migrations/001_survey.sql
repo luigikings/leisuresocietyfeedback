@@ -6,6 +6,10 @@
 -- It is safe to run again: tables use "if not exists", policies are dropped and re-created and
 -- functions are "create or replace" (existing rows are kept).
 --
+-- Migration order: after this file, ALWAYS apply supabase/migrations/002_q3_multiple.sql (Q3 multiple
+-- choice). If this file is run again, run 002_q3_multiple.sql right after it: otherwise save_response
+-- goes back to accepting only one letter in Q3 and the survey's multi-letter Q3 answers are rejected.
+--
 -- Security model ("the ID is the secret"):
 --   * The public (anon key) has NO privilege on any table. It can only EXECUTE save_response, which
 --     creates or updates the single row of the UUID v4 it receives and never returns data (RF-58..RF-60).

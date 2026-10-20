@@ -308,6 +308,7 @@ test("statisticsCsv: four sections in order Filters, Summary, Questions, Partici
     "percent",
     "answers",
     "comments",
+    "choice",
   ]);
   assert.deepEqual(s[3].rows[0], ["country_code", "country_name", "participants", "percent"]);
 });
@@ -321,17 +322,18 @@ test("statisticsCsv: question rows match questionStats, with (open answer) and u
   const qRows = s[2].rows.slice(1);
   const expected = [];
   for (const q of questionStats(rows, CONTENT)) {
+    const choice = q.multiple ? "multiple" : "single";
     for (const o of q.options) {
-      expected.push([`Q${q.n}`, q.text, o.letter, o.label, String(o.count), String(o.percent), String(q.answers), String(q.comments)]);
+      expected.push([`Q${q.n}`, q.text, o.letter, o.label, String(o.count), String(o.percent), String(q.answers), String(q.comments), choice]);
     }
     for (const u of q.unknown?.options ?? []) {
-      expected.push([`Q${q.n}`, q.text, u.letter, "(unknown option)", String(u.count), String(u.percent), String(q.answers), String(q.comments)]);
+      expected.push([`Q${q.n}`, q.text, u.letter, "(unknown option)", String(u.count), String(u.percent), String(q.answers), String(q.comments), choice]);
     }
   }
   assert.deepEqual(qRows, expected);
   // Spot checks of the numbers on screen.
   const q1a = qRows.find((r) => r[0] === "Q1" && r[2] === "A");
-  assert.deepEqual(q1a.slice(4), ["3", "75", "4", "1"]);
+  assert.deepEqual(q1a.slice(4), ["3", "75", "4", "1", "single"]);
   const q2 = qRows.filter((r) => r[0] === "Q2");
   assert.deepEqual(q2.map((r) => [r[2], r[3], r[4], r[5]]), [
     ["A", "Tell us… (open answer)", "1", "50"],
@@ -339,7 +341,7 @@ test("statisticsCsv: question rows match questionStats, with (open answer) and u
     ["X", "(unknown option)", "1", "50"],
   ]);
   const q10 = qRows.filter((r) => r[0] === "Q10");
-  assert.deepEqual(q10.map((r) => r.slice(4)), [["0", "0", "0", "0"], ["0", "0", "0", "0"]]);
+  assert.deepEqual(q10.map((r) => r.slice(4)), [["0", "0", "0", "0", "single"], ["0", "0", "0", "0", "single"]]);
 });
 
 test("statisticsCsv: Participants by country last, in the byCountry order, unknown code with empty name", () => {
@@ -436,4 +438,94 @@ test("statisticsCsv: text cells protected, numeric cells not; no participant id"
   assert.ok(qRows[0][3].startsWith("'-"));
   assert.match(qRows[0][4], /^\d+$/);
   for (const r of rows) assert.ok(!csv.includes(r.id));
+});
+
+// ---- Q3 multiple choice in both downloads (RF-74, RF-76, propuesta 36), T12 ----
+
+test('responsesCsv: Q3 with several letters as "A, C" and "The theme; A message", one comment (RF-74)', () => {
+  const r = row({ answers: { q1: ["A"], q3: ["AC", "Both, really"] } });
+  const csv = responsesCsv([{ row: r }], CONTENT, { timeZone: "UTC" });
+  assert.ok(csv.includes('"A, C",The theme; A message,"Both, really"'), "A, C quoted in one cell");
+  const [header, line] = parseCsv(csv);
+  assert.equal(line.length, 37, "no extra columns");
+  const at = header.indexOf("q3_option");
+  assert.deepEqual(line.slice(at, at + 3), ["A, C", "The theme; A message", "Both, really"]);
+  assert.deepEqual(line.slice(7, 10), ["A", "I stopped thinking and felt truly in the moment.", ""], "single choice unchanged");
+  assert.equal(line[6], "2");
+});
+
+test("responsesCsv: Q3 with one, three, an unknown letter, an old single letter and no answer", () => {
+  const rows = [
+    row({ answers: { q3: ["B"] } }),
+    row({ answers: { q3: ["ABC"] } }),
+    row({ answers: { q3: ["AD", "x"] } }),
+    row({ answers: {} }),
+  ];
+  const [header, ...lines] = parseCsv(responsesCsv(rows, CONTENT, { timeZone: "UTC" }));
+  const at = header.indexOf("q3_option");
+  assert.deepEqual(
+    lines.map((l) => l.slice(at, at + 3)),
+    [
+      ["B", "The people", ""],
+      ["A, B, C", "The theme; The people; A message", ""],
+      ["A, D", "The theme; (unknown option)", "x"],
+      ["", "", ""],
+    ],
+  );
+});
+
+test("responsesCsv: a multi-letter value in a single-choice question stays whole", () => {
+  const [header, line] = parseCsv(responsesCsv([row({ answers: { q1: ["AC"] } })], CONTENT, { timeZone: "UTC" }));
+  const at = header.indexOf("q1_option");
+  assert.deepEqual(line.slice(at, at + 3), ["AC", "(unknown option)", ""]);
+});
+
+test("statisticsCsv: Q3 counts per participant, choice multiple also on (unknown option) rows (RF-74, RF-76)", () => {
+  const rows = [
+    row({ answers: { q3: ["A"] } }),
+    row({ answers: { q3: ["AC"] } }),
+    row({ answers: { q3: ["ABC"] } }),
+    row({ answers: { q3: ["AD"] } }),
+    row({ answers: {} }),
+  ];
+  const qRows = sections(
+    parseCsv(
+      statisticsCsv(buildStatistics(rows, CONTENT), {
+        content: CONTENT,
+        filters: { country: "ALL", status: "all" },
+        generatedAt: AT,
+        timeZone: "UTC",
+      }),
+    ),
+  )[2].rows.slice(1);
+  const q3 = qRows.filter((r) => r[0] === "Q3").map((r) => [r[2], r[3], r[4], r[5], r[6], r[8]]);
+  assert.deepEqual(q3, [
+    ["A", "The theme", "4", "100", "4", "multiple"],
+    ["B", "The people", "1", "25", "4", "multiple"],
+    ["C", "A message", "2", "50", "4", "multiple"],
+    ["D", "(unknown option)", "1", "25", "4", "multiple"],
+  ]);
+  const q3stats = questionStats(rows, CONTENT).find((q) => q.n === 3);
+  assert.deepEqual(
+    q3.slice(0, 3).map((r) => [Number(r[2]), Number(r[3])]),
+    q3stats.options.map((o) => [o.count, o.percent]),
+    "same numbers as the screen (RF-57)",
+  );
+  assert.ok(qRows.filter((r) => r[0] !== "Q3").every((r) => r[8] === "single"));
+  assert.ok(qRows.every((r) => r.length === 9));
+});
+
+test("statisticsCsv: the spec case A / AC / ABC / unanswered gives 3 answers and 100/33/67", () => {
+  const rows = [row({ answers: { q3: ["A"] } }), row({ answers: { q3: ["AC"] } }), row({ answers: { q3: ["ABC"] } }), row()];
+  const qRows = sections(
+    parseCsv(statisticsCsv(buildStatistics(rows, CONTENT), { content: CONTENT, filters: {}, generatedAt: AT, timeZone: "UTC" })),
+  )[2].rows.slice(1);
+  assert.deepEqual(
+    qRows.filter((r) => r[0] === "Q3").map((r) => [r[2], r[4], r[5], r[6], r[8]]),
+    [
+      ["A", "3", "100", "3", "multiple"],
+      ["B", "1", "33", "3", "multiple"],
+      ["C", "2", "67", "3", "multiple"],
+    ],
+  );
 });

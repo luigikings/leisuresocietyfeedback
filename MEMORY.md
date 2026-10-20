@@ -2,10 +2,12 @@
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no aporte.
 
 ## Estado actual
-- Spec 001 (encuesta pública) implementada (16/10, con tres cambios validados hasta el 18/10). Spec 002 (panel /admin) implementada (18/10, VEREDICTO: APROBADO); sus 3 pruebas manuales se omitieron por decisión del usuario (ver "Antes del evento"). Presentación: 28/10/2026 por la noche.
+- Spec 001 (encuesta pública) implementada (16/10; último cambio "intro legible y Q3 de opción múltiple" validado y publicado el 20/10, T39-T45). Spec 002 (panel /admin) implementada (18/10; Q3 múltiple en T11-T13, 20/10); sus 3 pruebas manuales se omitieron por decisión del usuario (ver "Antes del evento"). Presentación: 28/10/2026 por la noche.
+- Q3 es de opción múltiple: se guarda como letras ordenadas sin separador ("A", "AC", "ABC"; 7 valores válidos) en `q3_option`; un solo campo de texto. `CONTENT.version` = "2026-10-live-2".
+- Migraciones: primero 001 y después 002, ambas aplicadas en Supabase (20/10). Despliegue: migración antes del push. Trampa: volver a ejecutar la 001 deshace el cambio de Q3 (repone la regla de una letra); si se hace, ejecutar otra vez la 002.
 - GitHub Pages ACTIVADO: encuesta en https://luigikings.github.io/leisuresocietyfeedback/ y panel en …/admin/.
 - Supabase: proyecto ref `xbsrdugimqpgxmlwbpxo` (Frankfurt, plan Free). Registro público y "Automatically expose new tables" desactivados. MCP de Supabase sin configurar (SQL a mano en el SQL Editor).
-- Contenido real: 10 preguntas y 6 países (18/10, en orden NL, HU, VE, IT, RO, PL + "Other"). `CONTENT.version` = "2026-10-live-1". Si se añade un país, subirla otra vez (descarta progreso, RF-52; el panel solo cuenta la versión actual) y añadir su bandera SVG 3:2 en `assets/flags/`.
+- Contenido real: 10 preguntas y 6 países (18/10, en orden NL, HU, VE, IT, RO, PL + "Other"). Si se añade un país, subirla otra vez (descarta progreso, RF-52; el panel solo cuenta la versión actual) y añadir su bandera SVG 3:2 en `assets/flags/`.
 
 ## Decisiones (y por qué)
 - Flujo: intro → país → ciudad apagada → 10 preguntas → final ("Leisure for Society"). Quien ya terminó ve directamente el final: evita duplicados.
@@ -22,7 +24,8 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 
 ## Antes del evento (28/10)
 - 18/10: el usuario decidió saltarse las 3 pruebas manuales de la 002 ("vamos a pasarnos las pruebas"): CSV en Excel, RF-12 y "Log out"/revocación con dos navegadores quedan sin verificar a mano.
-- Borrar filas de prueba (guía paso 6): `dbcheck…`, las de content_version "2026-10-test-1"/"2026-10-test-2" y la de "T19 test row - delete" (Germany, 16 Oct).
+- Borrar filas de prueba (guía paso 6): `dbcheck…`, las de content_version "2026-10-test-1"/"2026-10-test-2"/"2026-10-live-1", la de "T19 test row - delete" (Germany, 16 Oct) y una de "2026-10-live-2" (in_progress) de origen desconocido: identificarla antes.
+- 20/10: la prueba real de Q3 "AC" contra Supabase y /admin con login real se omitió por decisión del usuario (validado solo con datos simulados).
 - Generar el QR con la URL de Pages y probarlo en un móvil real.
 - Supabase sin pausar: el día anterior abrir el dashboard, `node scripts/check-db.mjs` y después el paso 6.
 - Pruebas a mano de la 001: atrás físico en Android real (RF-33/34); `prefers-reduced-motion: reduce` real; bloquear `*.woff2`; tras volver la red queda una sola fila.
@@ -30,7 +33,7 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 ## Aprendizajes y errores a evitar
 - Dos animaciones CSS en el mismo elemento se pisan: la entrada anima el contenedor y el bucle el hijo. Animar solo `opacity`/`transform` y bucles ≥ 1 s; para cambiar de color, capa aparte.
 - Chrome pasa `text-transform` al árbol de accesibilidad: hace falta el texto literal aparte.
-- Chrome DevTools MCP: no emula `prefers-reduced-motion` ni bloquea URLs; con `--isolated` pierde la sesión de /admin al reiniciarse; emular viewport recarga la página y salta el initScript → peticiones reales a Supabase (contarlas como de prueba).
+- Chrome DevTools MCP: no emula `prefers-reduced-motion` ni bloquea URLs; con `--isolated` pierde la sesión de /admin al reiniciarse; emular viewport u Offline recarga la página y salta el initScript → peticiones reales a Supabase (contarlas como de prueba); cambiar el tamaño en about:blank y navegar después con el initScript.
 - `node scripts/check-db.mjs` escribe filas `dbcheck…` en cada ejecución: borrarlas después.
 - Supabase puede mostrar "You need additional permissions" tras crear la organización: se arregla recargando.
 

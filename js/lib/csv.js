@@ -6,6 +6,7 @@
 import { OTHER_CODE } from "./sites.js";
 import { STATUS_CHOICES, answeredCount, byCountry, hasComment, questionStats, summary } from "./admin-stats.js";
 import { formatCsvDate } from "./admin-format.js";
+import { isMultiple, lettersOf } from "./choice.js";
 
 const BOM = "﻿";
 const EOL = "\r\n";
@@ -59,13 +60,18 @@ function countryFilterLabel(code, content) {
   return content.countries.find((c) => c.code === code)?.name ?? code;
 }
 
-/** The three cells of one question in "Download responses": option letter, label, comment. */
+/**
+ * The three cells of one question in "Download responses": option letter, label, comment. In the
+ * multiple-choice question the marked letters go in A, B, C order as "A, C" and their labels as
+ * "The theme; A message", with "(unknown option)" in place of an unknown letter (RF-74).
+ */
 function answerCells(row, question) {
   const option = row[`${question.id}_option`];
   if (typeof option !== "string" || option === "") return ["", "", ""];
-  const known = question.options.find((o) => o.letter === option);
+  const marked = isMultiple(question) ? lettersOf(option).sort() : [option];
+  const labels = marked.map((letter) => question.options.find((o) => o.letter === letter)?.label ?? UNKNOWN_OPTION);
   const text = row[`${question.id}_text`];
-  return [option, known ? known.label : UNKNOWN_OPTION, hasComment(text) ? text : ""];
+  return [marked.join(", "), labels.join("; "), hasComment(text) ? text : ""];
 }
 
 /**
@@ -114,7 +120,8 @@ export function buildStatistics(rows, content) {
 
 /**
  * "Download statistics" (RF-56, propuesta 21): one file with the sections "Filters", "Summary", "Questions"
- * (with one "(unknown option)" record per unknown letter) and, last as on screen (RF-70),
+ * (with one "(unknown option)" record per unknown letter and a last "choice" column, "single" or
+ * "multiple", RF-74) and, last as on screen (RF-70),
  * "Participants by country", separated by one empty record. Percentages are integers without "%".
  * `stats` comes from buildStatistics on the filtered set; `filters` are the applied { country, status }.
  */
@@ -134,10 +141,11 @@ export function statisticsCsv(stats, { content, filters = {}, generatedAt, timeZ
     ["In progress", sum.inProgress],
     [""],
     ["Questions"],
-    ["question", "question_text", "option", "option_label", "count", "percent", "answers", "comments"],
+    ["question", "question_text", "option", "option_label", "count", "percent", "answers", "comments", "choice"],
   ];
   for (const q of questions) {
-    const tail = [q.answers, q.comments];
+    // "choice" on every row of the question, "(unknown option)" rows included (RF-74, propuestas 36 y 39).
+    const tail = [q.answers, q.comments, q.multiple ? "multiple" : "single"];
     for (const o of q.options) records.push([`Q${q.n}`, q.text, o.letter, o.label, o.count, o.percent, ...tail]);
     for (const u of q.unknown?.options ?? []) {
       records.push([`Q${q.n}`, q.text, u.letter, UNKNOWN_OPTION, u.count, u.percent, ...tail]);

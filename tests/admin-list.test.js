@@ -314,10 +314,10 @@ test("describeEntry: Q1-Q10 with letter · label, comment below, or — (RF-40)"
     { timeZone: "UTC" },
   );
   assert.equal(e.answers.length, 10);
-  assert.deepEqual(e.answers[0], { n: 1, answer: "A · Yes 1", comment: "Great\nnight" });
-  assert.deepEqual(e.answers[1], { n: 2, answer: "A · Tell us…", comment: "The music" });
-  assert.deepEqual(e.answers[2], { n: 3, answer: "B · No 3", comment: null }, "only spaces is no comment");
-  assert.deepEqual(e.answers[9], { n: 10, answer: "—", comment: null });
+  assert.deepEqual(e.answers[0], { n: 1, answer: "A · Yes 1", lines: ["A · Yes 1"], comment: "Great\nnight" });
+  assert.deepEqual(e.answers[1], { n: 2, answer: "A · Tell us…", lines: ["A · Tell us…"], comment: "The music" });
+  assert.deepEqual(e.answers[2], { n: 3, answer: "B · No 3", lines: ["B · No 3"], comment: null }, "only spaces is no comment");
+  assert.deepEqual(e.answers[9], { n: 10, answer: "—", lines: [], comment: null });
 });
 
 test("describeEntry: unknown option letter, and a comment kept as stored text (RF-47)", () => {
@@ -337,4 +337,33 @@ test("describeEntry never carries the participant id (RF-48)", () => {
 
 test("no responses at all: 'No responses yet.'", () => {
   assert.equal(NO_RESPONSES_MESSAGE, "No responses yet.");
+});
+
+// ---- describeEntry: Q3 multiple choice, one line per marked option (RF-73, propuestas 35 y 39), T12 ----
+import { CONTENT } from "../js/content.js";
+
+test("describeEntry: Q3 gives one line per marked option in A, B, C order, comment below (RF-73)", () => {
+  const e = describeEntry(partial({ q3_option: "AC", q3_text: "Both" }), CONTENT, { timeZone: "UTC" });
+  assert.deepEqual(e.answers[2].lines, ["A · The theme", "C · A message"]);
+  assert.equal(e.answers[2].answer, "A · The theme\nC · A message");
+  assert.equal(e.answers[2].comment, "Both");
+  const all = describeEntry(partial({ q3_option: "ABC" }), CONTENT, { timeZone: "UTC" });
+  assert.deepEqual(all.answers[2].lines, ["A · The theme", "B · The people", "C · A message"]);
+  const old = describeEntry(partial({ q3_option: "B" }), CONTENT, { timeZone: "UTC" });
+  assert.deepEqual(old.answers[2].lines, ["B · The people"]);
+  assert.equal(old.answers[2].answer, "B · The people");
+});
+
+test('describeEntry: an unknown letter in Q3 gets its own line as "D · (unknown option)" (RF-73)', () => {
+  const e = describeEntry(partial({ q3_option: "AD" }), CONTENT, { timeZone: "UTC" });
+  assert.deepEqual(e.answers[2].lines, ["A · The theme", "D · (unknown option)"]);
+  assert.equal(e.answeredText, "1/10 answered");
+});
+
+test("describeEntry: single-choice questions have one line, unanswered ones none", () => {
+  const e = describeEntry(partial({ q1_option: "A", q2_option: "AC" }), CONTENT_T9, { timeZone: "UTC" });
+  assert.deepEqual(e.answers[0].lines, ["A · Yes 1"]);
+  assert.deepEqual(e.answers[1].lines, ["AC · (unknown option)"], "a multi-letter value in a single question stays whole");
+  assert.deepEqual(e.answers[9].lines, []);
+  assert.equal(e.answers[9].answer, "—");
 });

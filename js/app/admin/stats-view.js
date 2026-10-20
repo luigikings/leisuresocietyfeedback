@@ -47,6 +47,8 @@ function questionView(q, onSeeComments) {
   title.id = `stat-${q.id}`;
   title.append(h("span", "stat-block__number", `Q${q.n}`), " ", h("span", "stat-block__text", q.text));
   block.append(title, h("p", "stat-block__meta", countText(q.answers, "answer")));
+  // RF-72: it describes the question, not the data, so it is painted also with "No answers yet"
+  if (q.note) block.append(h("p", "stat-block__note", q.note));
 
   if (q.answers === 0) {
     block.append(h("p", "stat-block__empty", "No answers yet")); // RF-35
@@ -62,6 +64,7 @@ function questionView(q, onSeeComments) {
     }
     block.append(list);
     if (q.unknown) {
+      // rows (participants) with at least one unknown option, not letters (RF-76)
       block.append(
         h("p", "stat-block__warning", countText(q.unknown.count, "answer with an unknown option", "answers with an unknown option")),
       );

@@ -37,9 +37,13 @@ function countryLabel(country) {
   return span;
 }
 
-/** "A · label" (or "—") with the comment below, as plain text (RF-40, RF-47). */
+/**
+ * "A · label" (or "—") with the comment below, as plain text (RF-40, RF-47); in the multiple-choice question,
+ * one line per marked option in order A, B, C, unknown letters included, and the single comment below (RF-73).
+ */
 function answerContent(parent, a) {
-  parent.append(h("span", a.answer === "—" ? "answer answer--none" : "answer", a.answer));
+  if (a.lines.length === 0) parent.append(h("span", "answer answer--none", "—"));
+  for (const line of a.lines) parent.append(h("span", "answer", line));
   if (a.comment !== null) parent.append(h("span", "comment", a.comment));
 }
 

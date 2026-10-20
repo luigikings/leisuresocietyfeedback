@@ -52,12 +52,12 @@ test("without an option there is no text field and Next is disabled (RF-20 to RF
   assert.equal(v.canNext, false);
 });
 
-test("exactly one option is checked (RF-19)", () => {
-  let s = selectOption(goTo(3), C, "A");
-  s = selectOption(s, C, "C");
+test("exactly one option is checked in a single-answer question (RF-19)", () => {
+  let s = selectOption(atQ1(), C, "A");
+  s = selectOption(s, C, "B");
   const v = questionView(s, C);
-  assert.deepEqual(v.options.map((o) => o.checked), [false, false, true]);
-  assert.equal(v.checkedLetter, "C");
+  assert.deepEqual(v.options.map((o) => o.checked), [false, true]);
+  assert.equal(v.checkedLetter, "B");
 });
 
 test("a normal option shows the optional 'Want to tell us why?' field (RF-20)", () => {
@@ -143,4 +143,52 @@ test("optionForKey moves through the radio group with the arrow keys, wrapping a
   assert.equal(optionForKey(letters, null, "ArrowUp"), "C", "no selection: last option");
   assert.equal(optionForKey(letters, "A", "Tab"), null, "other keys are not handled");
   assert.equal(optionForKey(letters, "A", "x"), null);
+});
+
+// ---- Q3, multiple choice (change 2026-10-19): RF-17, RF-156, RF-157, RF-158, RF-159 ----
+test("only Q3 is multiple and shows the 'Choose one or more' hint (RF-154, RF-156)", () => {
+  const v3 = questionView(goTo(3), C);
+  assert.equal(v3.multiple, true);
+  assert.equal(v3.hint, "Choose one or more");
+  for (const n of [1, 2, 4, 10]) {
+    const v = questionView(goTo(n), C);
+    assert.equal(v.multiple, false, `Q${n}`);
+    assert.equal(v.hint, null, `Q${n}`);
+    assert.deepEqual(v.checkedLetters, [], `Q${n} without a choice`);
+  }
+});
+
+test("Q3: checked per letter, checkedLetters in order and checkedLetter null (RF-157)", () => {
+  let s = selectOption(goTo(3), C, "C");
+  s = selectOption(s, C, "A");
+  const v = questionView(s, C);
+  assert.deepEqual(v.options.map((o) => o.checked), [true, false, true]);
+  assert.deepEqual(v.checkedLetters, ["A", "C"]);
+  assert.equal(v.checkedLetter, null);
+});
+
+test("single-answer questions list their one letter in checkedLetters", () => {
+  const v = questionView(selectOption(atQ1(), C, "B"), C);
+  assert.deepEqual(v.checkedLetters, ["B"]);
+  assert.equal(v.checkedLetter, "B");
+});
+
+test("Q3: one 'why' field with 1+ marked, none with 0, text kept; Next follows (RF-158, RF-159, RF-23)", () => {
+  const empty = questionView(goTo(3), C);
+  assert.equal(empty.field, null);
+  assert.equal(empty.canNext, false);
+  let s = setText(selectOption(goTo(3), C, "A"), C, "nice");
+  s = selectOption(s, C, "B");
+  const two = questionView(s, C);
+  assert.equal(two.field, "why");
+  assert.equal(two.fieldLabel, FIELD_LABELS.why);
+  assert.equal(two.required, false);
+  assert.equal(two.canNext, true);
+  s = selectOption(selectOption(s, C, "A"), C, "B");
+  const none = questionView(s, C);
+  assert.equal(none.field, null);
+  assert.equal(none.fieldLabel, null);
+  assert.equal(none.canNext, false);
+  assert.equal(none.fieldText, "nice");
+  assert.deepEqual(none.checkedLetters, []);
 });

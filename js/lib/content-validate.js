@@ -8,6 +8,7 @@ const ISO_ALPHA2 = /^[A-Z]{2}$/;
 const MIN_COUNTRIES = 6;
 const MAX_COUNTRIES = 11; // + "Other" = 12 tiles at most (RF-4)
 const QUESTION_COUNT = 10;
+const MULTIPLE_ID = "q3"; // the only multiple-choice question the database accepts (RF-164)
 
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const isFilled = (v) => typeof v === "string" && v.trim().length > 0;
@@ -67,7 +68,24 @@ function validateQuestions(questions, siteIds, errors) {
     }
 
     validateOptions(q.options, name, errors);
+    validateMultiple(q, name, errors);
   });
+}
+
+// Q3 is multiple choice and no other question is; its options are all normal (RF-4, proposal 47).
+function validateMultiple(q, name, errors) {
+  if (q.multiple !== undefined && typeof q.multiple !== "boolean") {
+    errors.push(`${name}: multiple must be a boolean (found ${JSON.stringify(q.multiple)})`);
+  }
+  const multiple = q.multiple === true;
+  if (q.id === MULTIPLE_ID) {
+    if (!multiple) errors.push(`${name} must be multiple choice`);
+  } else if (multiple) {
+    errors.push(`${name}: only ${MULTIPLE_ID} can be multiple choice`);
+  }
+  if (multiple && Array.isArray(q.options) && q.options.some((o) => isObject(o) && o.type !== "normal")) {
+    errors.push(`${name}: multiple choice options must be normal`);
+  }
 }
 
 function validateOptions(options, name, errors) {

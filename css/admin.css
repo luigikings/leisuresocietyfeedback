@@ -398,6 +398,13 @@ select.field__input {
   color: var(--muted);
 }
 
+/* RF-72: normal text, 15 px, --muted on --royal-deep 7.4:1 (RNF-5). */
+.stat-block__note {
+  margin: 4px 0 0;
+  font-size: 0.9375rem;
+  color: var(--muted);
+}
+
 .stat-block__empty {
   margin: 12px 0 0;
   font-weight: 600;

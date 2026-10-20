@@ -64,3 +64,40 @@ Plan: `specs/002-admin/plan.md`. Tests con `node --test`: primero en rojo, despu
   - Pendiente del usuario (texto original del avance; el punto 1 ya está hecho): (1) consulta de solo lectura en el SQL Editor para comparar los números; (2) abrir los dos CSV en el Excel en inglés con doble clic; (3) RF-12 con la guía §4.4; (4) dos navegadores: "Log out" en uno no cierra el otro, y revocación de sesiones (guía §4.5, pasos 1, 2 y 5) deja al otro sin datos. Antes del evento, además: borrar las filas `dbcheck…` y la de la versión actual con el comentario "T19 test row - delete" (Germany, 16 Oct 20:51).
   - Hecho (2026-10-18): VEREDICTO: APROBADO del reviewer (582/582; check-db 38/38), validado con login real. La comparación de números con la base de datos (punto 1 de arriba) la hizo el coordinador con una consulta de solo lectura y coincide. Spec cerrada como implementada; MEMORY.md, AGENTS.md y la definición "Admin" de la spec 001 actualizados. Las filas de prueba no se borran aún (siguen haciendo falta para las pruebas pendientes): quedan en "Antes del evento" de MEMORY.md.
   - **Pendientes del usuario antes del evento** (decidió hacerlas después sobre GitHub Pages, "publica ya"): (a) abrir los dos CSV en el Excel en inglés con doble clic (RF-59, RNF-11); (b) RF-12 retirando y volviendo a añadir la cuenta en admins (guía §4.4); (c) dos navegadores: "Log out" local no cierra el otro y la revocación de sesiones deja al otro sin datos (RF-15, RF-16; guía §4.5, pasos 1 y 2).
+
+## Cambio de requisitos 2026-10-19 (plan §11): Q3 de opción múltiple
+Va junto al cambio de la spec 001 (`specs/001-survey/tasks.md`, T39-T45).
+
+- **Orden**: T39 → T40 → T41 → T43 → T44 de la 001, luego T11 → T12 → T13 de aquí, y por último T45 de la 001.
+- **Dependencia**: T11 necesita `js/lib/choice.js`, que crea la T39 de la 001.
+- **Sin commit ni push**: la validación conjunta y la publicación son la T45 de la 001, después de la migración (T42 [USUARIO]).
+- Las pruebas en el navegador se hacen con Supabase interceptado (datos simulados), como en T8 y T9.
+
+- [x] **T11. Lógica: estadísticas de Q3 por participante, aviso y opciones desconocidas.** RF-32, RF-34, RF-71, RF-72, RF-76
+  - Archivos: `js/lib/admin-stats.js` (plan §11.1).
+  - Tests primero: `tests/admin-stats.test.js` ampliado (plan §11.5).
+  - Hecho cuando:
+    - `node --test` en verde, con el caso "A", "AC", "ABC" y sin responder → 3 answers y 100/33/67;
+    - `unknown.count` cuenta filas;
+    - las preguntas de respuesta única dan los mismos números que antes.
+
+- [x] **T12. Lógica: Q3 en la lista y en los dos CSV.** RF-40, RF-55, RF-56, RF-57, RF-73, RF-74
+  - Archivos: `js/lib/admin-list.js` (`lines`, plan §11.2) y `js/lib/csv.js` (Q3 "A, C" / "The theme; A message" y columna `choice`, plan §11.3).
+  - Tests primero: `tests/admin-list.test.js` y `tests/csv.test.js` ampliados (plan §11.5).
+  - Hecho cuando:
+    - `node --test` en verde;
+    - las preguntas de respuesta única salen idénticas en los dos CSV, salvo la columna `choice` nueva del de estadísticas.
+
+- [x] **T13. Vistas del panel: aviso de Q3 y opciones marcadas en la lista.** RF-72, RF-73, RF-75, RNF-5, RNF-7
+  - Archivos: `js/app/admin/stats-view.js`, `js/app/admin/list-view.js` y `css/admin.css` (plan §11.4).
+  - Tests primero: los de T11 y T12; añadir casos si aparece lógica nueva (nunca en `js/app/`).
+  - Hecho cuando:
+    - `node --test` en verde;
+    - en Chrome DevTools a 375 y 1280 px, con datos simulados (filas de "2026-10-live-2" con Q3 "A", "AC", "ABC", "AD" y sin responder, y alguna fila de "2026-10-live-1"):
+      - el bloque de Q3 muestra 100/33/67, el aviso "Multiple choice – percentages can add up to more than 100%" (también con un filtro que deje "No answers yet") y el aviso de opción desconocida contando filas;
+      - la tabla y las tarjetas muestran una línea por opción marcada y "X · (unknown option)";
+      - "See comments" y la búsqueda funcionan en Q3;
+      - las filas de la versión anterior se ocultan con su aviso (RF-22);
+      - los dos CSV llevan "A, C", "The theme; A message" y la columna `choice`, con los mismos números que la pantalla;
+      - sin scroll horizontal de página a 375 px y consola limpia.
+  - Hecho (2026-10-19): `stats-view.js` pinta `q.note` en `<p class="stat-block__note">` justo debajo de "N answers", antes de la rama de "No answers yet"; el aviso de opción desconocida sigue con `q.unknown.count` (filas). `list-view.js` pinta `a.lines` (un `<span class="answer">` por línea, "—" si no hay) y el comentario debajo, en tabla y tarjetas. `css/admin.css`: `.stat-block__note` 15 px en `--muted` (7,4:1 sobre `--royal-deep`). Tests nuevos en `tests/admin-markup.test.js` (3, primero en rojo); `node --test` 660/660. Chrome DevTools con Supabase interceptado (sesión falsa, `is_admin` true, filas "2026-10-live-2" NL "A"/"AC"/"ABC", HU "AD"/sin Q3 y una "2026-10-live-1"), a 375×667 y 1280×800: "1 response from other content versions is hidden."; todos → 4 answers, 100/25/50, aviso y "1 answer with an unknown option"; Netherlands → 3 answers, 100/33/67; Hungary + In progress → "No answers yet" con el aviso; tarjetas y tabla con una línea por opción y "D · (unknown option)"; "See comments of Q3" → 2 de 5 y búsqueda → 1; los dos CSV con "A, C", "The theme; A message", "A, D"/"The theme; (unknown option)" y `choice`, mismos números que la pantalla; sin scroll horizontal y consola vacía.

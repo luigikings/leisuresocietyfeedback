@@ -6,7 +6,7 @@ Mientras no se hagan, la encuesta funciona en **modo local**: las respuestas se 
 
 ## Modelo de seguridad (resumen)
 - El público (clave anon/publishable) **no tiene ningún permiso sobre las tablas**. Solo puede ejecutar la función `save_response`, que crea o actualiza la fila del ID (UUID v4) que recibe y no devuelve nada. El ID es el secreto del participante.
-- `save_response` valida la forma (preguntas 1-10, opción A/B/C, textos de 280 como máximo, país ISO alfa-2 o `OTHER`, versión, estado y contador), ignora los envíos con contador antiguo, no deja cambiar país ni versión y no deja tocar una fila terminada.
+- `save_response` valida la forma (preguntas 1-10, opción A/B/C —en Q3, de opción múltiple, también AB, AC, BC o ABC—, textos de 280 como máximo, país ISO alfa-2 o `OTHER`, versión, estado y contador), ignora los envíos con contador antiguo, no deja cambiar país ni versión y no deja tocar una fila terminada.
 - RLS está activo y forzado en `responses` y `admins`. Solo leen las respuestas los usuarios autenticados que estén en `public.admins` (la cuenta compartida del panel /admin, paso 4).
 - Las fechas las pone el servidor. No se guarda la IP ni ningún dato personal (los registros técnicos propios de Supabase quedan fuera de nuestro control).
 - **Riesgos asumidos** (aprobados en la spec): quien conozca el ID de un participante podría sobrescribir su fila mientras no esté terminada, y cualquiera con la clave pública podría crear filas falsas con IDs válidos. Los admins pueden revisarlas y borrarlas a mano (paso 6).
@@ -26,6 +26,14 @@ Mientras no se hagan, la encuesta funciona en **modo local**: las respuestas se 
 5. Pulsa **Create new project** y espera a que termine de prepararse (1-2 minutos).
 
 ## 2. Aplicar el SQL
+**Orden de las migraciones** (carpeta `supabase/migrations/`):
+1. `001_survey.sql`: tablas, RLS, permisos y `save_response`.
+2. `002_q3_multiple.sql`: Q3 de opción múltiple (ver 2.1). Se aplica **siempre después** de la 001.
+
+> **Trampa**: si alguna vez vuelves a ejecutar la 001, ejecuta la 002 justo después. La 001 vuelve a crear `save_response` aceptando una sola letra en Q3, y la encuesta perdería las respuestas de Q3 con varias opciones.
+
+En un proyecto nuevo, aplica la 001 con los pasos de abajo y después la 002 igual (copiar todo, pegar, Run). En el proyecto actual, que ya tiene la 001, sigue el 2.1.
+
 1. En el menú lateral, **SQL Editor** → **New query**.
 2. Abre `supabase/migrations/001_survey.sql` del repo, copia **todo** su contenido y pégalo.
 3. Pulsa **Run**. Si Supabase avisa de una "destructive operation" es por los `drop policy if exists` (solo recrean las políticas): confirma.
@@ -42,6 +50,28 @@ Mientras no se hagan, la encuesta funciona en **modo local**: las respuestas se 
    -- Esperado: solo "authenticated | responses | SELECT".
    ```
 6. En **Project Settings → Data API**, comprueba que la Data API está activada y que el esquema `public` está expuesto (es lo normal en un proyecto nuevo). La encuesta llama a `save_response` a través de ella.
+
+### 2.1 Cambio de Q3 a opción múltiple (2026-10-19, migración 002)
+Desde este cambio, Q3 se guarda con las letras marcadas juntas y en orden: `A`, `AC`, `ABC`… La 002 cambia la regla de la columna `q3_option` y la validación de `save_response`. No toca RLS, permisos ni el resto de columnas, y las filas que ya existen (una letra en Q3) no cambian.
+
+**Hazlo antes de publicar la encuesta nueva** (si no, sus respuestas de Q3 con varias letras se rechazarían y se perderían). Todo en **SQL Editor → New query**, en tu sesión del panel de Supabase; ningún agente usa la clave service_role.
+
+1. **Mira la regla actual de Q3** (consulta de solo lectura, no cambia nada):
+   ```sql
+   select conname, pg_get_constraintdef(oid) as definition
+   from pg_constraint
+   where conrelid = 'public.responses'::regclass
+     and contype = 'c'
+     and pg_get_constraintdef(oid) ilike '%q3_option%';
+   ```
+   Esperado: **exactamente 1 fila**, con una definición parecida a `CHECK ((q3_option = ANY (ARRAY['A'::text, 'B'::text, 'C'::text])))`. El nombre será probablemente `responses_q3_option_check`: anótalo en la tarea T42 (a). **Si sale 0 filas o más de 1, para** y avisa al agente: no ejecutes la 002.
+2. **Ejecuta la migración**: abre `supabase/migrations/002_q3_multiple.sql`, copia **todo**, pégalo en una consulta nueva y pulsa **Run**. Si Supabase avisa de una "destructive operation" es por el `drop constraint` (cambia la regla de Q3, no borra datos): confirma.
+   - Resultado esperado: 1 fila con `result` = **`q3 constraints dropped: 1`** y, en `q3_option_rules`, solo `responses_q3_option_multi_check = CHECK ((q3_option = ANY (ARRAY['A'::text, 'B'::text, 'C'::text, 'AB'::text, 'AC'::text, 'BC'::text, 'ABC'::text])))`.
+   - Si se ejecuta otra vez, dice `q3 constraints dropped: 0` y deja la misma regla (es segura de repetir).
+   - Si da un error, **para** y avisa al agente con el mensaje de error (no improvises SQL). Al ir en una transacción, un error no deja nada a medias.
+3. **Comprueba que solo queda la regla nueva**: repite la consulta del punto 1. Esperado: **1 fila**, `responses_q3_option_multi_check`, con los 7 valores `A`, `B`, `C`, `AB`, `AC`, `BC`, `ABC`.
+4. **Comprueba con la clave pública**: `node scripts/check-db.mjs` (lo puede lanzar el agente). Debe terminar con "N/N checks passed", incluidos los casos de Q3 (`RF-164 Q3 "AC" is accepted`, `RF-62 Q3 "CA" is rejected`…). Si los de `AC`, `BC`, `ABC` o `AB` salen en FAIL, la 002 no está aplicada.
+5. **Borra las filas de prueba** que acaba de crear `check-db.mjs` (paso 6, punto 2).
 
 ## 3. Desactivar el registro público (RF-67)
 1. **Authentication → Sign In / Providers** (en algunas versiones: Authentication → Settings).
@@ -167,7 +197,7 @@ Prueba (validación de la spec 002, T10): con la sesión abierta en dos navegado
    `check-db.mjs` debe terminar con "N/N checks passed". Comprueba que el registro está desactivado, que el acceso directo a las tablas se rechaza, que `save_response` crea y actualiza sin devolver datos, que ignora contadores antiguos y que rechaza IDs no válidos, datos con forma no válida, cambios de país o versión y cambios en filas terminadas. Si dice "table not found", repite el paso 2.
 
 ## 6. Borrar las filas de prueba antes del evento (RNF-11)
-`check-db.mjs` crea filas con `content_version` que empieza por `dbcheck`, y las pruebas en el navegador crean filas con la versión de prueba del contenido (`2026-10-test-1`, `2026-10-test-2`). Antes del evento, en el **SQL Editor**:
+`check-db.mjs` crea filas con `content_version` que empieza por `dbcheck`, y las pruebas en el navegador crean filas con la versión de prueba del contenido (`2026-10-test-1`, `2026-10-test-2`). Desde el cambio de Q3 (2.1) la versión real es `2026-10-live-2`: las filas de `2026-10-live-1` (las de antes del cambio y las que envíe un navegador con la encuesta antigua en caché) ya no cuentan en el panel. Antes del evento, en el **SQL Editor**:
 
 1. Mira qué hay:
    ```sql
@@ -177,7 +207,11 @@ Prueba (validación de la spec 002, T10): con la sesión abierta en dos navegado
    ```sql
    delete from public.responses where content_version like 'dbcheck%';
    ```
-3. Cuando lleguen los países reales y se suba `CONTENT.version` en `js/content.js`, borra todo lo que no sea de la versión real (cambia el valor):
+3. Borra las filas de la versión anterior a Q3 de opción múltiple (`2026-10-live-1`), revisando antes en el punto 1 cuántas hay:
+   ```sql
+   delete from public.responses where content_version = '2026-10-live-1';
+   ```
+4. Cuando lleguen los países reales y se suba `CONTENT.version` en `js/content.js`, borra todo lo que no sea de la versión real (cambia el valor):
    ```sql
    delete from public.responses where content_version <> '<versión real de js/content.js>';
    ```
@@ -185,7 +219,7 @@ Prueba (validación de la spec 002, T10): con la sesión abierta en dos navegado
    ```sql
    delete from public.responses;
    ```
-4. Repite la consulta del punto 1 para confirmar.
+5. Repite la consulta del punto 1 para confirmar.
 
 No vuelvas a ejecutar `check-db.mjs` después de esta limpieza salvo que borres de nuevo sus filas (punto 2).
 
@@ -194,4 +228,4 @@ No vuelvas a ejecutar `check-db.mjs` después de esta limpieza salvo que borres 
 - Si se configuró el MCP de Supabase, pásalo a solo lectura o quítalo cuando haya datos reales.
 
 ## Alternativa: aplicar el SQL con el MCP de Supabase
-Si el usuario configura el MCP de Supabase limitado a este proyecto, el agente puede aplicar `001_survey.sql` con él en lugar del paso 2. Los pasos 3, 4 y 5 siguen siendo manuales.
+Si el usuario configura el MCP de Supabase limitado a este proyecto, el agente puede aplicar `001_survey.sql` y después `002_q3_multiple.sql` con él en lugar del paso 2 (en ese orden; las comprobaciones del 2.1 siguen valiendo). Los pasos 3, 4 y 5 siguen siendo manuales.

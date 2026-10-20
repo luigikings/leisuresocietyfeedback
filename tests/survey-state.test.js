@@ -16,6 +16,8 @@ import {
   systemBack,
   litSites,
   resumeState,
+  settle,
+  currentField,
 } from "../js/lib/survey-state.js";
 
 const C = CONTENT;
@@ -102,12 +104,12 @@ test("selectOption keeps a single choice per question (RF-19)", () => {
   assert.equal(s.drafts.q1.option, "B");
 });
 
-test("selectOption keeps a single choice in Q3 (3 options) (RF-19)", () => {
+test("selectOption in Q3 (multiple choice) adds the second option instead of replacing it (RF-155)", () => {
   let s = answerUntil(atQ1(), 3);
   assert.equal(s.current, 3);
   s = selectOption(s, C, "A");
   s = selectOption(s, C, "C");
-  assert.equal(s.drafts.q3.option, "C");
+  assert.equal(s.drafts.q3.option, "AC");
 });
 
 test("selectOption ignores letters that the question does not have", () => {
@@ -349,4 +351,201 @@ test("resumeState ignores unknown ids in answered", () => {
   const r = resumeState(saved, C);
   assert.deepEqual(r.answered, ["q1"]);
   assert.equal(r.current, 2);
+});
+
+// ---- Q3, multiple choice (change 2026-10-19): RF-154 to RF-163, RF-169 ----
+const atQ3 = () => answerUntil(atQ1(), 3); // q1, q2 answered; Q3 shown
+const toggle = (s, ...letters) => letters.reduce((acc, l) => selectOption(acc, C, l), s);
+const toQ4 = (s) => next(s, C).state;
+
+test("Q3: marking 1, 2 and 3 options and unmarking them, without touching the others (RF-155)", () => {
+  let s = atQ3();
+  s = toggle(s, "A");
+  assert.equal(s.drafts.q3.option, "A");
+  s = toggle(s, "B");
+  assert.equal(s.drafts.q3.option, "AB");
+  s = toggle(s, "C");
+  assert.equal(s.drafts.q3.option, "ABC");
+  s = toggle(s, "B");
+  assert.equal(s.drafts.q3.option, "AC");
+  s = toggle(s, "A", "C");
+  assert.equal(s.drafts.q3.option, null);
+  assert.deepEqual(s.drafts.q1, { option: "A", text: "t" }, "other drafts unchanged");
+  assert.deepEqual(s.drafts.q2, { option: "A", text: "t" });
+});
+
+test("Q3: options are kept in A, B, C order without repeats, whatever the tap order (RF-161)", () => {
+  assert.equal(toggle(atQ3(), "C", "A").drafts.q3.option, "AC");
+  assert.equal(toggle(atQ3(), "B", "A").drafts.q3.option, "AB");
+  assert.equal(toggle(atQ3(), "C", "B", "A").drafts.q3.option, "ABC");
+});
+
+test("Q3: a letter the question does not have is ignored", () => {
+  const s = toggle(atQ3(), "A");
+  assert.equal(selectOption(s, C, "D"), s);
+});
+
+test("Q1 stays single answer next to the multiple-choice Q3 (RF-19, RF-154)", () => {
+  const s = toggle(atQ1(), "A", "B");
+  assert.equal(s.drafts.q1.option, "B");
+});
+
+test("Q3: Next is enabled with 1, 2 or 3 marked options and disabled with 0 (RF-23)", () => {
+  const s = atQ3();
+  assert.equal(canGoNext(s, C), false);
+  assert.equal(canGoNext(toggle(s, "B"), C), true);
+  assert.equal(canGoNext(toggle(s, "A", "C"), C), true);
+  assert.equal(canGoNext(toggle(s, "A", "B", "C"), C), true);
+  assert.equal(canGoNext(toggle(s, "A", "A"), C), false);
+  assert.equal(next(toggle(s, "A", "A"), C).commit, false);
+});
+
+test("Q3: a single 'why' field with 1+ marked; hidden with 0 and its text kept (RF-158, RF-159, RF-26)", () => {
+  let s = atQ3();
+  assert.equal(currentField(s, C), null);
+  s = setText(toggle(s, "A", "C"), C, "both");
+  assert.equal(currentField(s, C), "why");
+  s = toggle(s, "A", "C");
+  assert.equal(currentField(s, C), null);
+  assert.equal(s.drafts.q3.text, "both");
+  s = toggle(s, "B");
+  assert.equal(currentField(s, C), "why");
+  assert.equal(s.drafts.q3.text, "both");
+});
+
+test("currentField matches fieldFor in single-answer questions (RF-20 to RF-22)", () => {
+  assert.equal(currentField(atQ1(), C), null);
+  assert.equal(currentField(selectOption(atQ1(), C, "A"), C), "why");
+  const q2 = answerUntil(atQ1(), 2);
+  assert.equal(currentField(selectOption(q2, C, "A"), C), "required");
+  const q9 = answerUntil(atQ1(), 9);
+  assert.equal(currentField(selectOption(q9, C, "B"), C), "optional");
+  assert.equal(currentField(initialState(), C), null);
+});
+
+test("Q3: Next stores 'AC' with the single text and lights only the museum (RF-160, RF-29)", () => {
+  const r = next(setText(toggle(atQ3(), "C", "A"), C, " why not "), C);
+  assert.equal(r.commit, true);
+  assert.deepEqual(r.state.answers.q3, { option: "AC", text: "why not" });
+  assert.ok(r.state.answered.includes("q3"));
+  assert.equal(r.state.current, 4);
+  assert.deepEqual(litSites(r.state, C), ["park", "concert-hall", "museum"]);
+});
+
+test("Q3: Next with 3 options still lights exactly one site (RF-160)", () => {
+  const s = toQ4(toggle(atQ3(), "A", "B", "C"));
+  assert.equal(s.answers.q3.option, "ABC");
+  assert.equal(litSites(s, C).filter((x) => x === "museum").length, 1);
+  assert.equal(litSites(s, C).length, 3);
+});
+
+test("Q3: Next stores the letters in A, B, C order even from an unordered draft (RF-161)", () => {
+  const s = atQ3();
+  const messy = { ...s, drafts: { ...s.drafts, q3: { option: "CA", text: "" } } };
+  assert.equal(next(messy, C).state.answers.q3.option, "AC");
+});
+
+test("Q3: changing 'ABC' to 'B' replaces the set and the text; the site stays lit (RF-163, RF-32)", () => {
+  let s = toQ4(setText(toggle(atQ3(), "A", "B", "C"), C, "all"));
+  s = back(s, C);
+  assert.equal(s.current, 3);
+  s = setText(toggle(s, "A", "C"), C, "only B");
+  s = toQ4(s);
+  assert.deepEqual(s.answers.q3, { option: "B", text: "only B" });
+  assert.deepEqual(s.answered, ["q1", "q2", "q3"]);
+  assert.deepEqual(litSites(s, C), ["park", "concert-hall", "museum"]);
+});
+
+test("Q3: Back and Next keep the marked options and the text of the draft (RF-162, RF-31)", () => {
+  let s = setText(toggle(atQ3(), "B", "C"), C, "draft");
+  s = back(s, C);
+  assert.equal(s.current, 2);
+  s = next(s, C).state;
+  assert.equal(s.current, 3);
+  assert.deepEqual(s.drafts.q3, { option: "BC", text: "draft" });
+  assert.equal(s.answered.includes("q3"), false);
+});
+
+// RF-169: an answered Q3 with everything unmarked goes back to what was saved when leaving it.
+function answeredQ3ThenUnmarked() {
+  let s = toQ4(setText(toggle(atQ3(), "A", "C"), C, "saved text")); // Q3 answered "AC"
+  s = back(s, C); // on Q3 again
+  s = setText(toggle(s, "A", "C"), C, "edited"); // all unmarked, text edited
+  assert.equal(s.drafts.q3.option, null);
+  return s;
+}
+
+test("RF-169: answered Q3, all unmarked, Back -> the draft goes back to 'AC' with its text", () => {
+  const s = back(answeredQ3ThenUnmarked(), C);
+  assert.equal(s.current, 2);
+  assert.deepEqual(s.drafts.q3, { option: "AC", text: "saved text" });
+  assert.deepEqual(s.answers.q3, { option: "AC", text: "saved text" });
+  assert.ok(s.answered.includes("q3"));
+  assert.ok(litSites(s, C).includes("museum"));
+});
+
+test("RF-169: the same with the system back", () => {
+  const s = systemBack(answeredQ3ThenUnmarked(), C);
+  assert.equal(s.current, 2);
+  assert.deepEqual(s.drafts.q3, { option: "AC", text: "saved text" });
+});
+
+test("RF-169: the same when reloading in that state (resumeState)", () => {
+  const r = resumeState(answeredQ3ThenUnmarked(), C);
+  assert.equal(r.screen, "question");
+  assert.equal(r.current, 4, "first unanswered question");
+  assert.deepEqual(r.drafts.q3, { option: "AC", text: "saved text" });
+  assert.equal(back(r, C).current, 3);
+  assert.deepEqual(back(r, C).drafts.q3, { option: "AC", text: "saved text" });
+});
+
+test("RF-169: a saved text of null comes back as an empty draft text", () => {
+  let s = toQ4(toggle(atQ3(), "B")); // answered "B" without text -> text null
+  assert.equal(s.answers.q3.text, null);
+  s = toggle(back(s, C), "B");
+  s = back(s, C);
+  assert.deepEqual(s.drafts.q3, { option: "B", text: "" });
+});
+
+test("RF-169 / RF-31: unanswered Q3, all unmarked, Back -> the empty draft and its text are kept", () => {
+  let s = setText(toggle(atQ3(), "A", "A"), C, "still thinking");
+  s = back(s, C);
+  assert.equal(s.current, 2);
+  assert.deepEqual(s.drafts.q3, { option: null, text: "still thinking" });
+  assert.equal(s.answered.includes("q3"), false);
+  assert.equal(s.answers.q3, undefined);
+  assert.equal(litSites(s, C).includes("museum"), false);
+});
+
+test("settle: no change for single-answer questions, unanswered Q3 or Q3 with options marked", () => {
+  const q3 = atQ3();
+  assert.equal(settle(q3, "q3", C), q3, "unanswered");
+  assert.equal(settle(q3, "q1", C), q3, "single answer");
+  let s = toQ4(toggle(q3, "A"));
+  s = toggle(back(s, C), "B"); // "AB", answered "A"
+  assert.equal(settle(s, "q3", C), s, "options marked: the draft stays");
+  assert.equal(settle(s, "q99", C), s, "unknown question");
+});
+
+test("settle does not mutate its input", () => {
+  const s = answeredQ3ThenUnmarked();
+  const before = JSON.stringify(s);
+  settle(s, "q3", C);
+  back(s, C);
+  resumeState(s, C);
+  assert.equal(JSON.stringify(s), before);
+});
+
+test("back and systemBack without content behave as before (no settle)", () => {
+  const s = answeredQ3ThenUnmarked();
+  assert.equal(back(s).current, 2);
+  assert.deepEqual(back(s).drafts.q3, { option: null, text: "edited" });
+  assert.deepEqual(systemBack(s), back(s));
+});
+
+test("back with content on question 1 and outside the questions still does nothing (RF-18, RF-34)", () => {
+  const q1 = atQ1();
+  assert.equal(back(q1, C), q1);
+  const intro = initialState();
+  assert.equal(systemBack(intro, C), intro);
 });

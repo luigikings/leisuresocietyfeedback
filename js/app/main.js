@@ -198,7 +198,7 @@ function update(nextSurvey) {
 
 // Browser / system back behaves like Back on questions 2-10 and does nothing elsewhere (RF-33, RF-34);
 // during a transition it is ignored and history.js puts the guard back as always (RF-106).
-const historyGuard = createHistoryGuard({ onBack: () => act(() => update(systemBack(local.survey))) });
+const historyGuard = createHistoryGuard({ onBack: () => act(() => update(systemBack(local.survey, CONTENT))) });
 
 introScreen = mountIntro(sections.intro, {
   onStart: () => act(() => {
@@ -241,7 +241,7 @@ questionScreen = mountQuestion(sections.question, {
   onBack() {
     act(() => {
       historyGuard.ensureGuard();
-      update(back(local.survey));
+      update(back(local.survey, CONTENT));
     });
   },
 });

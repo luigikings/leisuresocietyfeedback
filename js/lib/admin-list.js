@@ -3,6 +3,7 @@
 // "Status", see admin-stats.js) and adds the search, the "Comments" filter and the order.
 import { INITIAL_FILTERS, STATUS_CHOICES, answeredCount, countryFlag, countryName, hasComment } from "./admin-stats.js";
 import { formatDisplay } from "./admin-format.js";
+import { isMultiple, lettersOf } from "./choice.js";
 
 export { hasComment };
 
@@ -124,7 +125,8 @@ const STATUS_LABELS = new Map(STATUS_CHOICES.map((c) => [c.value, c.label]));
 /**
  * What one entry of "Responses" shows (RF-40), as text: start and last update in `timeZone`, the country
  * ({ code, name, flag } with a site-relative flag or null), "Completed"/"In progress", "n/10 answered" and,
- * for Q1-Q10, { n, answer: "A · label" | "—", comment: stored text | null }. Comments are returned as stored:
+ * for Q1-Q10, { n, answer: "A · label" | "—", lines: ["A · label", …] | [], comment: stored text | null }; in the
+ * multiple-choice question `lines` has one "letter · label" per marked letter and `answer` joins them with "\n" (RF-73). Comments are returned as stored:
  * the interface puts them in with textContent (RF-47). The participant id is never part of it (RF-48).
  */
 export function describeEntry(row, content, { timeZone }) {
@@ -133,12 +135,17 @@ export function describeEntry(row, content, { timeZone }) {
   const answers = content.questions.slice(0, QUESTIONS).map((q, index) => {
     const option = row[`${q.id}_option`];
     const text = row[`${q.id}_text`];
-    let answer = "—";
+    let lines = [];
     if (typeof option === "string" && option !== "") {
-      const known = q.options.find((o) => o.letter === option);
-      answer = `${option} · ${known ? known.label : UNKNOWN_OPTION_LABEL}`;
+      // Multiple choice: one line per marked letter, A, B, C order (RF-73). Single: the whole value is the option.
+      const marked = isMultiple(q) ? lettersOf(option).sort() : [option];
+      lines = marked.map((letter) => {
+        const known = q.options.find((o) => o.letter === letter);
+        return `${letter} · ${known ? known.label : UNKNOWN_OPTION_LABEL}`;
+      });
     }
-    return { n: index + 1, answer, comment: hasComment(text) ? text : null };
+    const answer = lines.length > 0 ? lines.join("\n") : "—";
+    return { n: index + 1, answer, lines, comment: hasComment(text) ? text : null };
   });
   return {
     started: formatDisplay(row.created_at, timeZone),

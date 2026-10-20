@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Checks the LIVE Supabase project against the data and permission rules of spec 001
-// (RF-57 to RF-67). Manual: needs network and js/config.js filled in. Not part of `node --test`.
+// (RF-57 to RF-67) and of the Q3 multiple-choice change (RF-62, RF-164: needs migration 002 applied).
+// Manual: needs network and js/config.js filled in. Not part of `node --test`.
 //
 //   node scripts/check-db.mjs
 //
@@ -182,6 +183,18 @@ async function main() {
   await expectRejected("RF-62 text not a string", payload(id(), 1, { answers: { q1: { option: "A", text: 42 } } }));
   await expectRejected("RF-62 unexpected field in an answer", payload(id(), 1, { answers: { q1: { option: "A", text: null, extra: 1 } } }));
   await expectRejected("RF-62 text of 281 characters", payload(id(), 1, { answers: { q1: { option: "A", text: "a".repeat(281) } } }));
+
+  // ---- RF-62/RF-164: Q3 is multiple choice (migration 002_q3_multiple.sql) ----
+  // Before migration 002 is applied, the multi-letter cases below ("AC", "BC", "ABC", "AB" completed) FAIL.
+  const q3 = (option, opts = {}) => payload(id(), 1, { ...opts, answers: { q3: { option, text: null } } });
+  for (const option of ["A", "AC", "BC", "ABC"]) {
+    await expectSaved(`RF-164 Q3 "${option}" is accepted`, q3(option));
+  }
+  await expectSaved('RF-164 Q3 "AB" in a completed row is accepted', q3("AB", { status: "completed" }));
+  for (const option of ["", "CA", "AA", "AD", "ABCD", "ac"]) {
+    await expectRejected(`RF-62 Q3 "${option}" is rejected`, q3(option));
+  }
+  await expectRejected('RF-62 "AB" in another question (q1) is rejected', payload(id(), 1, { answers: { q1: { option: "AB", text: null } } }));
 
   const failed = results.filter((ok) => !ok).length;
   console.log(`\n${results.length - failed}/${results.length} checks passed.`);
