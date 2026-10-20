@@ -24,7 +24,7 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 
 ## Antes del evento (28/10)
 - 18/10: el usuario decidió saltarse las 3 pruebas manuales de la 002 ("vamos a pasarnos las pruebas"): CSV en Excel, RF-12 y "Log out"/revocación con dos navegadores quedan sin verificar a mano.
-- Borrar filas de prueba (guía paso 6): `dbcheck…`, las de content_version "2026-10-test-1"/"2026-10-test-2"/"2026-10-live-1", la de "T19 test row - delete" (Germany, 16 Oct) y una de "2026-10-live-2" (in_progress) de origen desconocido: identificarla antes.
+- 20/10: el usuario vació `public.responses` (30 filas, todas de prueba; la de "2026-10-live-2" era una prueba local del 19/10). Si se vuelve a ejecutar `check-db.mjs` o se prueba contra Supabase, borrar esas filas otra vez (guía paso 6).
 - 20/10: la prueba real de Q3 "AC" contra Supabase y /admin con login real se omitió por decisión del usuario (validado solo con datos simulados).
 - Generar el QR con la URL de Pages y probarlo en un móvil real.
 - Supabase sin pausar: el día anterior abrir el dashboard, `node scripts/check-db.mjs` y después el paso 6.

@@ -19,6 +19,8 @@ El público entra por QR, responde 10 preguntas y una ciudad nocturna se ilumina
 
 ## Reglas de dominio / trampas conocidas
 - 10 preguntas = 10 sitios de ocio: cada respuesta enciende exactamente uno.
+- Q3 es de opción múltiple y se guarda como letras juntas y ordenadas (A, AC, ABC); las demás son de respuesta única.
+- Primero se aplica la migración de la base de datos y después se publica la web (si no, la base rechaza los valores nuevos).
 - Las respuestas se guardan al momento en UNA fila por participante (ID aleatorio en el navegador), no solo al final.
 - La clave anon de Supabase es pública: la seguridad depende de RLS. El público no tiene permisos sobre las tablas: escribe solo mediante la RPC `save_response` (security definer), y el ID UUID v4 del navegador es su secreto. Solo leen los admins autenticados que están en `public.admins` (hoy, una sola cuenta compartida "admin"; ver `docs/supabase.md` §4).
 - /admin es una página pública en hosting estático: los datos los protege Supabase, no la página.
