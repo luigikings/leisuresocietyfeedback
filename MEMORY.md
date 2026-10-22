@@ -3,11 +3,11 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 
 ## Estado actual
 - Spec 001 (encuesta pública) implementada (16/10; último cambio "intro legible y Q3 de opción múltiple" validado y publicado el 20/10, T39-T45). Spec 002 (panel /admin) implementada (18/10; Q3 múltiple en T11-T13, 20/10); sus 3 pruebas manuales se omitieron por decisión del usuario (ver "Antes del evento"). Presentación: 28/10/2026 por la noche.
-- Q3 es de opción múltiple: se guarda como letras ordenadas sin separador ("A", "AC", "ABC"; 7 valores válidos) en `q3_option`; un solo campo de texto. `CONTENT.version` = "2026-10-live-2".
+- Q3 es de opción múltiple: se guarda como letras ordenadas sin separador ("A", "AC", "ABC"; 7 valores válidos) en `q3_option`; un solo campo de texto. `CONTENT.version` = "2026-10-live-3" (22/10: England y Moldova).
 - Migraciones: primero 001 y después 002, ambas aplicadas en Supabase (20/10). Despliegue: migración antes del push. Trampa: volver a ejecutar la 001 deshace el cambio de Q3 (repone la regla de una letra); si se hace, ejecutar otra vez la 002.
 - GitHub Pages ACTIVADO: encuesta en https://luigikings.github.io/leisuresocietyfeedback/ y panel en …/admin/.
 - Supabase: proyecto ref `xbsrdugimqpgxmlwbpxo` (Frankfurt, plan Free). Registro público y "Automatically expose new tables" desactivados. MCP de Supabase sin configurar (SQL a mano en el SQL Editor).
-- Contenido real: 10 preguntas y 6 países (18/10, en orden NL, HU, VE, IT, RO, PL + "Other"). Si se añade un país, subirla otra vez (descarta progreso, RF-52; el panel solo cuenta la versión actual) y añadir su bandera SVG 3:2 en `assets/flags/`.
+- Contenido real: 10 preguntas y 8 países (en orden NL, HU, VE, IT, RO, PL, GB = England, MD + "Other"; England y Moldova el 22/10). England usa "GB" porque no tiene código ISO y la base solo admite 2 letras u OTHER. Si se añade un país, subir `CONTENT.version` (descarta progreso, RF-52; el panel solo cuenta la versión actual) y añadir su bandera SVG 3:2 en `assets/flags/`.
 
 ## Decisiones (y por qué)
 - Flujo: intro → país → ciudad apagada → 10 preguntas → final ("Leisure for Society"). Quien ya terminó ve directamente el final: evita duplicados.

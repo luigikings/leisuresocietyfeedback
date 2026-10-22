@@ -1,10 +1,11 @@
 // CONTENT DATA — the only file to edit to change countries or questions.
 // Bump `version` whenever countries or questions change (old progress is discarded, RF-52).
 // Flags: assets/flags/<iso code in lowercase>.svg. Option types: "normal" | "open-required" | "open-optional".
-// Real countries of the event (2026-10-18); more can be added later (bump `version`).
+// Real countries of the event (2026-10-18; England and Moldova added 2026-10-22); more can be added later (bump `version`).
+// England has no ISO code of its own: it uses "GB" with the St George's Cross flag.
 
 export const CONTENT = {
-  version: "2026-10-live-2", // live-2: Q3 became multiple choice (RF-166)
+  version: "2026-10-live-3", // live-3: England and Moldova added (live-2: Q3 became multiple choice, RF-166)
 
   // Shown in this order (RF-3, RF-10); "Other" is added last by the interface.
   countries: [
@@ -14,6 +15,8 @@ export const CONTENT = {
     { code: "IT", name: "Italy" },
     { code: "RO", name: "Romania" },
     { code: "PL", name: "Poland" },
+    { code: "GB", name: "England" },
+    { code: "MD", name: "Moldova" },
   ],
 
   questions: [

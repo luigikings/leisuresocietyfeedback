@@ -197,7 +197,7 @@ Prueba (validación de la spec 002, T10): con la sesión abierta en dos navegado
    `check-db.mjs` debe terminar con "N/N checks passed". Comprueba que el registro está desactivado, que el acceso directo a las tablas se rechaza, que `save_response` crea y actualiza sin devolver datos, que ignora contadores antiguos y que rechaza IDs no válidos, datos con forma no válida, cambios de país o versión y cambios en filas terminadas. Si dice "table not found", repite el paso 2.
 
 ## 6. Borrar las filas de prueba antes del evento (RNF-11)
-`check-db.mjs` crea filas con `content_version` que empieza por `dbcheck`, y las pruebas en el navegador crean filas con la versión de prueba del contenido (`2026-10-test-1`, `2026-10-test-2`). Desde el cambio de Q3 (2.1) la versión real es `2026-10-live-2`: las filas de `2026-10-live-1` (las de antes del cambio y las que envíe un navegador con la encuesta antigua en caché) ya no cuentan en el panel. Antes del evento, en el **SQL Editor**:
+`check-db.mjs` crea filas con `content_version` que empieza por `dbcheck`, y las pruebas en el navegador crean filas con la versión de prueba del contenido (`2026-10-test-1`, `2026-10-test-2`). Desde el 22/10 (England y Moldova) la versión real es `2026-10-live-3`: las filas de `2026-10-live-1` y `2026-10-live-2` (las de antes de cada cambio y las que envíe un navegador con la encuesta antigua en caché) ya no cuentan en el panel. Antes del evento, en el **SQL Editor**:
 
 1. Mira qué hay:
    ```sql
@@ -207,9 +207,9 @@ Prueba (validación de la spec 002, T10): con la sesión abierta en dos navegado
    ```sql
    delete from public.responses where content_version like 'dbcheck%';
    ```
-3. Borra las filas de la versión anterior a Q3 de opción múltiple (`2026-10-live-1`), revisando antes en el punto 1 cuántas hay:
+3. Borra las filas de las versiones anteriores (`2026-10-live-1` y `2026-10-live-2`), revisando antes en el punto 1 cuántas hay:
    ```sql
-   delete from public.responses where content_version = '2026-10-live-1';
+   delete from public.responses where content_version in ('2026-10-live-1', '2026-10-live-2');
    ```
 4. Cuando lleguen los países reales y se suba `CONTENT.version` en `js/content.js`, borra todo lo que no sea de la versión real (cambia el valor):
    ```sql

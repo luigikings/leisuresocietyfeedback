@@ -44,10 +44,10 @@ test("countryTiles with no countries gives only Other", () => {
   assert.deepEqual(countryTiles([]), [OTHER_ENTRY]);
 });
 
-test("with the real content there are 7 tiles: the 6 countries in order + Other", () => {
+test("with the real content there are 9 tiles: the 8 countries in order + Other", () => {
   const tiles = countryTiles(CONTENT.countries);
-  assert.equal(tiles.length, 7);
-  assert.deepEqual(codes(tiles), ["NL", "HU", "VE", "IT", "RO", "PL", OTHER_CODE]);
+  assert.equal(tiles.length, 9);
+  assert.deepEqual(codes(tiles), ["NL", "HU", "VE", "IT", "RO", "PL", "GB", "MD", OTHER_CODE]);
 });
 
 test("the module only exports OTHER_ENTRY and countryTiles (search and sort removed, RF-12 to RF-14)", () => {
